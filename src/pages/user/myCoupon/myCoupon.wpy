@@ -1,0 +1,262 @@
+<template>
+  <view class="myCoupon">
+    <view class="myCoupon-tab">
+      <view class="myCoupon-tab-item border-bottom-1px" wx:for="{{tabList}}" wx:key="{{item}}">
+        <view class="{{index===menuIdx?'myCoupon-tab-itemTxt active':'myCoupon-tab-itemTxt'}}" @tap="changeTab({{index}})">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="myCoupon-nothing" wx:if="{{couponList.length===0}}">
+      <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/pic-empty_coupon@2x.png'}}" class="myCoupon-nothing-img"></image>
+      <view class="myCoupon-nothing-txt">您还没有相关优惠券</view>
+      <view class="myCoupon-nothingBtn" @tap="toRecommend">随便逛逛</view>
+    </view>
+
+    <scroll-view scroll-y class="myCoupon-couponList" bindscrolltolower="couponLower" wx:if="{{couponList.length>0}}">
+      <repeat for="{{couponList}}" key="index" index="index" item="item">
+        <view class="myCoupon-couponList-box">
+          <coupon :coupon.sync="item" :type="type"></coupon>
+        </view>
+      </repeat>
+      <Underline></Underline>
+    </scroll-view>
+
+    <BackHome></BackHome>
+    <Toast></Toast>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import myCoupon from '@/api/coupon'
+  import Toast from '@/base/toast/toast'
+  import URIS from 'common/js/config'
+  import {ERR_OK} from '@/api/base'
+  import Underline from '@/base/underline-block/underline-block'
+  import BackHome from '@/base/back-home/back-home'
+  import coupon from '@/base/coupon-item/coupon-item'
+
+  export default class MyCoupon extends wepy.page {
+    mixins = [base]
+
+    config = {
+      navigationBarTitleText: '我的优惠券'
+    }
+
+    components = {
+      Toast,
+      Underline,
+      BackHome,
+      coupon
+    }
+
+    data = {
+      imageUrlHead: URIS.image,
+      tabList: ['未使用', '已使用', '已失效'],
+      menuIdx: 0,
+      couponList: [],
+      page: 1,
+      LowerLoading: false,
+      nothingAdd: false,
+      type: 'mine'
+    }
+
+    methods = {
+      async changeTab(idx) {
+        this.menuIdx = idx
+        this.couponList = []
+        let status = this.menuIdx === 0 ? 3 : this.menuIdx
+        let resList = await this._getCouponList(status, 1)
+        this.page = 1
+        this.nothingAdd = false
+        this.$invoke('Underline', 'hide')
+        this.couponList = resList
+        this.$apply()
+        this.loaded()
+      },
+      async couponLower() {
+        if (!this.LowerLoading && !this.nothingAdd) {
+          this.LowerLoading = true
+          this.page++
+          let status = this.menuIdx === 0 ? 3 : this.menuIdx
+          let res = await this._getCouponList(status, this.page)
+          if (res.length === 0) {
+            this.nothingAdd = true
+            this.$invoke('Underline', 'show')
+          }
+          let resArr = res
+          this.couponList.push(...resArr)
+          this.LowerLoading = false
+          this.$apply()
+          this.loaded()
+        } else if (this.nothingAdd) {
+
+        }
+      },
+      useCoupon(id, type) {
+        this.$navigate('/pages/coupon-use/couponUse?type=' + type + '&id=' + id)
+      },
+      toRecommend() {
+        wx.switchTab({url: '/pages/trading-area/trading-area'})
+      },
+      couponDetail(id, type, codeId, merchantId) {
+        if (this.menuIdx === 0) {
+          if (type === 'exchange') {
+            this.$navigate('/pages/coupon-use/couponUse?type=' + type + '&id=' + codeId)
+            return
+          }
+          this.$navigate('/pages/coupon-detail/coupon-detail?type=1&id=' + id + '&currentMerchant=' + merchantId)
+        }
+      }
+    }
+
+    async onShow() {
+      await this.load()
+      const scene = wx.getStorageSync('scene')
+      if (scene === 1014) {
+        this.$invoke('BackHome', 'show')
+      } else {
+        this.$invoke('BackHome', 'hide')
+      }
+    }
+
+    onHide() {
+      this.$invoke('BackHome', 'hide')
+    }
+
+    onUnload() {
+      this.$invoke('BackHome', 'hide')
+    }
+
+    async load() {
+      this.nothingAdd = false
+      this.$invoke('Underline', 'hide')
+      let limit
+      if (this.nothingAdd || this.couponList.length >= 100) {
+        limit = 100
+      } else {
+        limit = Math.ceil(this.couponList.length / 10) * 10 || 10
+      }
+      let status = this.menuIdx === 0 ? 3 : this.menuIdx
+      let resList = await this._getCouponList(status, 1, limit)
+      this.couponList = resList
+      this.loaded()
+      this.$apply()
+    }
+
+    async _getCouponList(idx, page, limit = 10) {
+      let res = await myCoupon.getUserCouponList(idx, page, limit)
+      let Json = []
+      if (res.error === ERR_OK) {
+        Json = res.data
+        if (idx === 3) {
+          Json = res.data.map((item) => {
+            item.promotion.status = 0
+            return item
+          })
+        }
+        return Json
+      }
+    }
+
+    events = {
+      payUse(item) {
+        let id = item.promotion.id
+        this.$navigate('/pages/coupon-particulars/coupon-particulars?id=' + id)
+      },
+      showQrcord(item) {
+        if (item.promotion.promotion_type === 'deduction') {
+          this.$navigate(`/pages/coupon-detail/coupon-detail?actId=${item.promotion.act_id}&type=1&merchantId=${item.merchant_id}&fromCustomerId=${item.promotion.share_customer_id}&id=${item.promotion.promotion_id}&s=share&isShowCoupon=1`)
+          return
+        }
+        let type = item.promotion.promotion_type
+        let id = item.id
+        this.$navigate('/pages/coupon-use/couponUse?type=' + type + '&id=' + id)
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../../common/stylus/variable"
+
+  .myCoupon-midMoney
+    font-size: $font-size-medium
+    font-family: PingFangSC-Semibold
+
+  .myCoupon-bigMoney
+    color: #5D5D5D
+    font-size: 40px
+    font-family: Impact
+
+  .myCoupon-tab
+    display: flex
+    background: $color-highlight-background
+    height: 8vh
+
+    .myCoupon-tab-item
+      flex: 1
+      display: flex
+      justify-content: center
+
+      .myCoupon-tab-itemTxt
+        color: $color-text
+        font-size: $font-size-medium
+        text-align: center
+        line-height: 8vh
+        width: 71px
+
+      .myCoupon-tab-itemTxt.active
+        position: relative
+        &:before
+          content : ''
+          width: 30px
+          height: 2px
+          position: absolute
+          left: 50%
+          transform :translateX(-50%)
+          bottom: 0px
+          background: $color-theme
+
+  .myCoupon-nothing
+    height: 201px
+    background: $color-highlight-background
+    border-bottom: 1px solid $color-row-line
+    display: flex
+    flex-direction: column
+    align-items: center
+
+    .myCoupon-nothing-img
+      width: 100px
+      height: 80px
+      margin-top: 32px
+      margin-bottom: 8px
+
+    .myCoupon-nothing-txt
+      font-size: $font-size-small
+      line-height: 33rpx
+      margin-bottom: 15px
+
+    .myCoupon-nothingBtn
+      width: 86px
+      height: 24px
+      border: 1px solid $color-row-line
+      text-align: center
+      line-height: 24px
+      font-size: $font-size-small
+      border-radius: 2px
+
+      &:active
+        border: 1px solid $color-button
+        color: $color-button
+
+  .myCoupon-couponList
+    max-height: 92vh
+    color: $color-text-n
+
+    .myCoupon-couponList-box
+      padding: 0 12px
+      margin-top: 10px
+</style>

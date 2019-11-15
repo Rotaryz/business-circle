@@ -1,0 +1,249 @@
+<template>
+  <view class="myCenter">
+    <view class="myCenter-head">
+      <view class="myCenter-head-avatarBox" @tap="updateAvatarImg">
+        <image mode="aspectFill"
+               src="{{avatar}}"
+               class="myCenter-head-avatar"
+               style="background-image: url({{imageUrlHead ? imageUrlHead + '/defaults/c-image/mine/pic-default.png':''}}); background-size: 48px 48px"></image>
+        <view class="myCenter-head-txt">点击修改头像</view>
+      </view>
+    </view>
+    <view class="myCenter-cutLine"></view>
+    <view class="myCenter-msgList">
+      <view class="myCenter-msgList-item border-bottom-1px myCenter-msgList-id">
+        <view class="myCenter-msgList-item-title">用户ID</view>
+        <view class="myCenter-msgList-item-msg">{{userInfo.user_id}}</view>
+      </view>
+      <view class="myCenter-msgList-item border-bottom-1px myCenter-msgList-phone" @tap="changePhone">
+        <view class="myCenter-msgList-item-title">手机号</view>
+        <view class="myCenter-msgList-item-msg">{{phone?phone:'点击绑定手机'}}</view>
+      </view>
+      <PhoneTest></PhoneTest>
+      <view class="myCenter-msgList-item border-bottom-1px myCenter-msgList-name">
+        <view class="myCenter-msgList-item-title">昵称</view>
+        <view class="myCenter-msgList-item-msg">{{userInfo.nickName}}</view>
+      </view>
+      <view class="myCenter-msgList-item border-bottom-1px myCenter-msgList-gender">
+        <view class="myCenter-msgList-item-title">性别</view>
+        <view class="myCenter-msgList-item-msg">
+          <picker bindchange="genderChange" value="{{userInfo.sex*1 - 1}}" range="{{genderSelect}}">
+            <view>{{genders[gender]}}</view>
+          </picker>
+        </view>
+      </view>
+      <view class="myCenter-msgList-item border-bottom-1px myCenter-msgList-birthday">
+        <view class="myCenter-msgList-item-title">出生日期</view>
+        <view class="myCenter-msgList-item-msg">
+          <picker mode="date" value="{{userInfo.birth}}" end="{{now}}" bindchange="birthdayChange">
+            <view>{{birth}}</view>
+          </picker>
+        </view>
+      </view>
+    </view>
+    <Toast></Toast>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import users from 'common/mixins/users'
+  import base from 'common/mixins/base'
+  import user from 'api/user'
+  import PhoneTest from '@/base/phoneTest/phoneTest'
+  import Tips from '@/common/js/tips'
+  import Toast from '@/base/toast/toast'
+  import URIS from 'common/js/config'
+  import {ERR_OK} from '@/api/base'
+
+  export default class MyCenter extends wepy.page {
+    mixins = [users, base]
+
+    config = {
+      navigationBarTitleText: '我的',
+      navigationBarBackgroundColor: '#ffffff',
+      navigationBarTextStyle: 'black'
+    }
+
+    components = {
+      PhoneTest,
+      Toast
+    }
+
+    data = {
+      imageUrlHead: URIS.image,
+      userInfo: {
+        nickName: '加载中...',
+        avatarUrl: '',
+        birth: '1986-01-01'
+      },
+      avatar: '',
+      birth: '',
+      phone: '',
+      gender: '',
+      genders: ['未知', '男', '女'],
+      genderSelect: ['男', '女'],
+      now: '2017-01-01'
+    }
+
+    onLoad() {
+      this.userInfo = this.$parent.globalData.user
+      this.avatar = this.userInfo.avatarUrl
+      this.birth = this.userInfo.birth
+      this.phone = this.userInfo.mobile
+      this.gender = this.userInfo.sex
+      this.$apply()
+    }
+
+    async _updateMsg(data) {
+      let res = await user.updataMsg(data)
+      this.loaded()
+      if (res.error === ERR_OK) {
+        Tips.success('修改成功')
+        return true
+      } else {
+        this.$invoke('Toast', 'show', res.message)
+        return false
+      }
+    }
+
+    async _updataUser() {
+      await this.$getUserInfo()
+      this.userInfo = this.$parent.globalData.user
+      this.avatar = this.userInfo.avatarUrl
+      this.birth = this.userInfo.birth
+      this.phone = this.userInfo.mobile
+      this.gender = this.userInfo.sex
+      this.loaded()
+      this.$apply()
+    }
+
+    methods = {
+      async genderChange(e) {
+        let choiceValue = Number(e.detail.value) + 1
+        let self = this
+        if (choiceValue === Number(self.gender)) {
+          return
+        }
+        let data = {
+          sex: choiceValue
+        }
+        let res = await this._updateMsg(data)
+        if (!res) {
+          return
+        }
+        this.gender = choiceValue
+        this.$parent.updateGlobalData('user', Object.assign({}, this.userInfo))
+        wepy.setStorageSync('user', Object.assign({}, this.userInfo))
+        this.$apply()
+      },
+      async birthdayChange(e) {
+        if (e.detail.value === this.birth) {
+          return
+        }
+        let data = {
+          birth: e.detail.value
+        }
+        let res = await this._updateMsg(data)
+        if (!res) {
+          return
+        }
+        this.birth = e.detail.value
+        this.$parent.updateGlobalData('user', Object.assign({}, this.userInfo))
+        wepy.setStorageSync('user', Object.assign({}, this.userInfo))
+        this.$apply()
+      },
+      async updateAvatarImg() {
+        const res = await user.updateAvatar('image_id')
+        this.loaded()
+        if (res.error === ERR_OK) {
+          Tips.success('修改成功')
+        } else {
+          this.$invoke('Toast', 'show', res.message)
+          return false
+        }
+        this.avatar = res.data
+        this.$parent.updateGlobalData('user', Object.assign({}, this.userInfo))
+        wepy.setStorageSync('user', Object.assign({}, this.userInfo))
+        this.$apply()
+      },
+      changePhone() {
+        this.$invoke('PhoneTest', 'bindPhone', 'modify')
+      }
+    }
+
+    events = {
+      'isPhoneOk': () => {
+        this._updataUser()
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../../common/stylus/variable"
+
+  page
+    background: $color-background
+
+  .myCenter
+    font-size: $font-size-medium
+
+    .myCenter-head
+      display: flex
+      flex-direction: column
+      align-items: center
+      background: $color-highlight-background
+
+      .myCenter-head-avatarBox
+        display: flex
+        flex-direction: column
+        align-items: center
+        padding: 22px 0
+
+        .myCenter-head-avatar
+          width: 48px
+          height: 48px
+          border-radius: 50%
+          margin: 7px
+          border: 1px solid $color-col-line
+
+        .myCenter-head-txt
+          color: $color-text
+
+    .myCenter-cutLine
+      background: $color-background
+      border: 1px solid $color-row-line
+      height: 10px
+
+    .myCenter-msgList
+      display: flex
+      flex-direction: column
+      background: $color-highlight-background
+
+      .myCenter-msgList-item
+        flex: 1
+        height: 20px
+        padding: 10px 0
+        margin-left: 12px
+        display: flex
+
+        .myCenter-msgList-item-title
+          flex: 1
+          color: $color-text-d
+
+        .myCenter-msgList-item-msg
+          flex: 2
+          color: $color-text
+
+        .myCenter-msgList-item-msg view
+          color: $color-text
+
+        .myCenter-msgList-item-msg label
+          margin-right: 15px
+
+      .myCenter-msgList-id .myCenter-msgList-item-msg, .myCenter-msgList-name .myCenter-msgList-item-msg
+        color: #B6B6B6
+
+</style>

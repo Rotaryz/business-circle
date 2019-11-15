@@ -1,0 +1,300 @@
+<template>
+  <view class="good-shops">
+    <view class="head">
+      <picker bindchange="industryChange" range="{{industryList}}" range-key="name">
+        <view class="nav-item">
+          <view class="nav-txt">{{industryTxt}}</view>
+          <image class="nav-icon" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/icon-area_down@2x.png'}}"></image>
+        </view>
+      </picker>
+      <picker bindchange="sortChange" range="{{sortArr}}" range-key="txt">
+        <view class="nav-item">
+          <view class="nav-txt">{{sortTxt}}</view>
+          <image class="nav-icon" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/icon-area_down@2x.png'}}"></image>
+        </view>
+      </picker>
+      <image class="head-bg" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/bg-shadow@2x.png'}}"></image>
+    </view>
+    <view class="content">
+      <view class="shop-item" wx:for="{{shops}}" wx:key="{{index}}" @tap="jumpShop({{item}})">
+        <view class="item-left">
+          <image class="shop-img" src="{{item.logo_image}}" mode="aspectFill"></image>
+        </view>
+        <view class="item-right">
+          <view class="item-title">{{item.shop_name}}</view>
+          <view class="remark">
+            <view class="remark-txt">大众点评</view>
+            <view class="starts">
+              <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 0.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 1 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+              <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 1.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 2 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+              <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 2.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 3 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+              <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 3.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 4 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+              <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 4.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 5 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+            </view>
+          </view>
+          <view class="item-address">
+            <image class="address-icon" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/icon-area_location02@2x.png'}}"></image>
+            <view class="address-txt">{{item.particular_address}}</view>
+          </view>
+          <view class="right-down">
+            <view class="down-item">
+              <text class="down-title">活动</text>
+              <text>{{item.activity_count}}</text>
+            </view>
+            <view class="down-item">
+              <text class="down-title">优惠</text>
+              <text>{{item.promotion}}</text>
+            </view>
+          </view>
+        </view>
+      </view>
+      <view class="nothing-box" wx:if="{{!shops.length}}">
+        <image src="{{imageUri + '/defaults/c-image/square/icon-s_empty@2x.png'}}" wx:if="{{imageUri}}" class="nothing-img"></image>
+        <view class="nothing-txt">暂无数据</view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import {ERR_OK} from 'api/base'
+  import URIS from 'common/js/config'
+  import Circles from 'api/circles'
+
+  export default class GoodShops extends wepy.page {
+    mixins = [base]
+
+    config = {
+      navigationBarTitleText: '好店',
+      navigationBarBackgroundColor: '#fff',
+      navigationBarTextStyle: 'black',
+      backgroundColor: '#f9f9f9'
+    }
+
+    data = {
+      imageUri: URIS.image,
+      industryId: -1,
+      shops: [],
+      sortArr: [
+        {
+          txt: '智能排序',
+          id: ''
+        },
+        {
+          txt: '热门商家',
+          id: '1'
+        },
+        {
+          txt: '离我最近',
+          id: '2'
+        }
+      ],
+      sortTxt: '智能排序',
+      sortId: '',
+      industryList: [],
+      industryTxt: '全部',
+      latitude: '',
+      longitude: ''
+    }
+
+    async onLoad() {
+      await this.load()
+      this.loaded()
+    }
+
+    async load() {
+      await this._getGoodShops()
+      await this._getIndustryList()
+    }
+
+    // 商圈好店
+    async _getGoodShops() {
+      let data = {
+        parent_industry_id: this.industryId,
+        latitude: this.latitude,
+        longitude: this.longitude,
+        order: this.sortId
+      }
+      let resData = await Circles.goodShops(data)
+      if (resData.error !== ERR_OK) {
+        return
+      }
+      this.shops = resData.data
+      this.$apply()
+    }
+
+    // 行业列表
+    async _getIndustryList() {
+      let resData = await Circles.getIndustrys()
+      if (resData.error !== ERR_OK) {
+        return
+      }
+      this.industryList = [{id: -1, name: '全部'}, ...resData.data]
+      this.$apply()
+    }
+
+    methods = {
+      jumpShop(item) {
+        wx.navigateToMiniProgram({
+          appId: item.app_id,
+          path: item.path,
+          extraData: {},
+          envVersion: URIS.jumpVersion,
+          success(res) {
+            // 打开成功
+          }
+        })
+      },
+      async sortChange(e) {
+        let idx = e.detail.value
+        if (e.detail.value * 1 === 2) {
+          let res = await wepy.getLocation({type: 'gcj02'})
+          this.latitude = res.latitude
+          this.longitude = res.longitude
+        }
+        this.sortTxt = this.sortArr[idx].txt
+        this.sortId = this.sortArr[idx].id
+        await this._getGoodShops()
+        this.loaded()
+        this.$apply()
+      },
+      async industryChange(e) {
+        let idx = e.detail.value
+        this.industryTxt = this.industryList[idx].name
+        this.industryId = this.industryList[idx].id
+        await this._getGoodShops()
+        this.loaded()
+        this.$apply()
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../common/stylus/variable"
+  @import "../../common/stylus/mixin"
+
+  .good-shops
+    width: 100%
+    .head
+      position: absolute
+      width: 100%
+      left: 0
+      top: 0
+      height: 52px
+      background: $color-white
+      display: flex
+      padding-left: 45px
+      box-sizing: border-box
+      .nav-item
+        display: flex
+        height: 42px
+        align-items: center
+        margin-right: 60px
+        .nav-txt
+          font-family: PingFangSC-Light
+          font-size: $font-size-medium
+          color: $color-text
+        .nav-icon
+          width: 10px
+          height: 10px
+          margin-left: 10px
+      .head-bg
+        position: absolute
+        left: 0
+        bottom: 0
+        width: 100vw
+        height: 2.6666666vw
+
+    .content
+      padding-top: 47px
+      .shop-item
+        display: flex
+        height: 100px
+        margin-bottom: 10px
+        background: $color-white
+        padding-left: 12px
+        padding-top: 10px
+        .item-left
+          width: 65px
+          height: 65px
+          box-sizing: border-box
+          border: 0.5px solid $color-col-line
+          border-radius: 2px
+          overflow: hidden
+          margin-right: 12px
+          .shop-img
+            width: 100%
+            height: 100%
+        .item-right
+          .item-title
+            font-family: PingFangSC-Medium
+            font-size: $font-size-medium
+            letter-spacing: 0.42px
+            margin-bottom: 9px
+          .remark
+            display: flex
+            height: 12px
+            margin-bottom: 8px
+            .remark-txt
+              font-family: PingFangSC-Light
+              font-size: $font-size-small
+              color: $color-orange
+            .starts
+              display: flex
+              height: 11px
+              margin-left: 7px
+              .start
+                width: 11px
+                height: 11px
+                margin-right: 2px
+                &:last-child
+                  margin-right: 0
+          .item-address
+            display: flex
+            height: 12px
+            align-items: center
+            margin-bottom: 13px
+            .address-icon
+              width: 10px
+              height: 10px
+              margin-right: 2px
+            .address-txt
+              width: 66vw
+              overflow: hidden
+              text-overflow: ellipsis
+              white-space: nowrap
+              font-family: PingFangSC-Light
+              font-size: $font-size-small
+          .right-down
+            display: flex
+            .down-item
+              padding: 3.5px 5px
+              font-family: PingFangSC-Light
+              font-size: $font-size-small-s
+              color: $color-text
+              background: $color-white
+              border: 0.5px solid #D3D3D3
+              border-radius: 2px
+              margin-right: 8px
+              .down-title
+                margin-right: 4px
+
+      .nothing-box
+        margin-top: 100px
+        height: 200px
+        display: flex
+        flex-direction: column
+        align-items: center
+        justify-content: center
+        .nothing-img
+          width: 100px
+          height: 80px
+          margin-bottom: 15px
+        .nothing-txt
+          font-size: $font-size-small
+          color: $color-text
+</style>

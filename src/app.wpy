@@ -1,0 +1,152 @@
+<style lang="stylus">
+  @import "./common/stylus/index"
+</style>
+
+<script>
+  import wepy from 'wepy'
+  import wxUtils from '@/common/js/wxUtils'
+  import 'wepy-async-function'
+  import './utils/ald-stat.js'
+
+  export default class extends wepy.app {
+    constructor() {
+      super()
+      this.use('requestfix')
+      this.use('promisify')
+    }
+
+    onLaunch() {
+      let extConfig = wepy.getExtConfigSync()
+      this.globalData.env = extConfig.env || 'prod'
+      this.globalData.version = extConfig.version || 'v2'
+      console.log('环境：' + this.globalData.env)
+      console.log('版本：' + this.globalData.version)
+    }
+
+    onShow(options) {
+      const targetPage = wxUtils.setPagePath(options.path, options.query) // 获取此次的目标页面路径
+      this.updateGlobalData('targetPage', targetPage)
+      const token = wepy.getStorageSync('token')
+      if (!token) {
+        wepy.reLaunch({url: `/pages/loading/loading`})
+      }
+      if (options.query.businessCircleId) {
+        const businessCircleId = options.query.businessCircleId
+        wepy.setStorageSync('businessCircleId', businessCircleId)
+      }
+    }
+
+    isObject(item) {
+      return typeof item === 'object' && !this.isArray(item)
+    }
+
+    isArray(item) {
+      return Object.prototype.toString.apply(item) === '[object Array]'
+    }
+
+    isUndefined(item) {
+      return typeof item === 'undefined'
+    }
+
+    // 向下暴露一个更换globalData的方法
+    updateGlobalData(name, obj) {
+      // 校验: globalData
+      if (!this.globalData) return
+      // 校验: 操作字段
+      if (typeof name !== 'string' || name === '') return {}
+      // 取已有信息
+      const info = this.globalData[name] || {}
+      // 更新缓存
+      if (obj && this.isObject(obj)) {
+        // Object合并第一层
+        this.globalData[name] = Object.assign({}, info, obj)
+      } else if (!this.isUndefined(obj)) {
+        // 其他非undefined数据直接覆盖
+        this.globalData[name] = obj
+      }
+      this.$apply && this.$apply()
+//    console.info(`[${obj ? 'UPDATE' : 'GET'} GlobalData ${name}]:`, this.globalData[name])
+      return this.globalData[name]
+    }
+
+    config = {
+      current_merchant: 100004,
+      pages: [
+        'pages/square/square',
+        'pages/loading/loading',
+        'pages/square-list/square-list',
+        'pages/trading-area/trading-area',
+        'pages/pay-result/pay-result',
+        'pages/coupon-detail/coupon-detail',
+        'pages/content-detail/content-detail',
+        'pages/user/mine/mine',
+        'pages/user/myCenter/myCenter',
+        'pages/user/myOrder/myOrder',
+        'pages/user/myOrder-detail/myOrderDetail',
+        'pages/user/refund/refund',
+        'pages/user/myCoupon/myCoupon',
+        'pages/user/withDraw/withDraw',
+        'pages/coupon-use/couponUse',
+        'pages/user/redPacket/redPacket',
+        'pages/user/mySelect/mySelect',
+        'pages/post-order/post-order',
+        'pages/shareAndPrize/shareAndPrize',
+        'pages/net-error/net-error',
+        'pages/browse-shops/browse-shops',
+        'pages/user/address/address',
+        'pages/user/myIntegral/myIntegral',
+        'pages/user/getIntegral/getIntegral',
+        'pages/good-shops/good-shops',
+        'pages/good-contents/good-contents',
+        'pages/error/error',
+        'pages/coupon-particulars/coupon-particulars',
+        'pages/bank-card/bank-card',
+        'pages/group-detail/group-detail',
+        'pages/shop-introduce/shop-introduce',
+        'pages/sold-out/sold-out',
+        'pages/pay-coupon/pay-coupon',
+        'pages/my-bargain/my-bargain'
+      ],
+      window: {
+        backgroundColor: '#F9F9F9',
+        backgroundTextStyle: 'light',
+        navigationBarBackgroundColor: '#fff',
+        navigationBarTitleText: '集客',
+        navigationBarTextStyle: 'black'
+      },
+      tabBar: {
+        color: '#BEBEBE',
+        selectedColor: '#706B82',
+        backgroundColor: '#fff',
+        borderStyle: 'black',
+        list: [
+          {
+            pagePath: 'pages/square/square',
+            text: '广场',
+            iconPath: './icon/icon-tab_square1@2x.png',
+            selectedIconPath: './icon/icon-tab_square2@2x.png'
+          },
+          {
+            pagePath: 'pages/trading-area/trading-area',
+            text: '商圈',
+            iconPath: './icon/icon-tab_s1@2x.png',
+            selectedIconPath: './icon/icon-tab_s2@2x.png'
+          },
+          {
+            pagePath: 'pages/user/mine/mine',
+            text: '我的',
+            iconPath: './icon/icon-tab_my1@2x.png',
+            selectedIconPath: './icon/icon-tab_my2@2x.png'
+          }
+        ]
+      }
+    }
+
+    globalData = {
+      isAuthorise: false,
+      user: null,
+      orderInfo: {},
+      targetPage: ''
+    }
+  }
+</script>

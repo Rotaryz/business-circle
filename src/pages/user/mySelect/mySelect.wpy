@@ -1,0 +1,431 @@
+<template>
+  <view class="mySelect">
+    <view class="mySelect-tab">
+      <view class="mySelect-tab-item" wx:for="{{tabList}}" wx:key="{{item}}">
+        <view class="{{index===menuIdx?'mySelect-tab-itemTxt active':'mySelect-tab-itemTxt'}}" @tap="changeTab({{index}})">{{item}}</view>
+      </view>
+    </view>
+
+    <view class="mySelect-nothing" wx:if="{{nothingBoxShow}}">
+      <image src="{{emptyImg[menuIdx]}}" wx:if="{{imageUrlHead}}" class="mySelect-nothing-img"></image>
+      <view class="mySelect-nothing-txt">{{emptyMsg[menuIdx]}}</view>
+      <view class="mySelect-nothingBtn" @tap="toRecommend">随便逛逛</view>
+    </view>
+
+    <scroll-view scroll-y class="mySelect-couponList" bindscrolltolower="couponLower" wx:if="{{couponList.length>0}}">
+      <repeat for="{{couponList}}" key="index" index="index" item="item">
+        <view class="mySelect-couponList-box">
+          <coupon :coupon.sync="item" :type="type"></coupon>
+        </view>
+      </repeat>
+      <Underline></Underline>
+    </scroll-view>
+
+    <scroll-view scroll-y class="mySelect-contentList" bindscrolltolower="contentLower" wx:if="{{contentList.length > 0}}">
+      <repeat for="{{contentList}}" key="index" index="index" item="item">
+        <view class="mySelect-contentList-box">
+          <content :content.sync="item" :type="giftType"></content>
+        </view>
+      </repeat>
+      <Underline></Underline>
+    </scroll-view>
+
+    <scroll-view scroll-y class="mySelect-kacList" bindscrolltolower="kacLower" wx:if="{{kacList.length > 0}}">
+      <repeat for="{{kacList}}" key="index" index="index" item="item">
+        <view class="mySelect-kacList-box">
+          <giftbag :giftbag.sync="item"></giftbag>
+        </view>
+      </repeat>
+      <Underline></Underline>
+    </scroll-view>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import mySelect from '@/api/mySelect'
+  import URIS from 'common/js/config'
+  import {ERR_OK} from '@/api/base'
+  import Underline from '@/base/underline-block/underline-block'
+  import coupon from '@/base/coupon-item/coupon-item'
+  import content from '@/base/content-item/content-item'
+  import giftbag from '@/base/giftbag-item/giftbag-item'
+
+  export default class MySelect extends wepy.page {
+    mixins = [base]
+
+    config = {
+      navigationBarTitleText: '我的收藏'
+    }
+
+    data = {
+      imageUrlHead: URIS.image,
+      tabList: ['优惠券', '内容', '礼包'],
+      menuIdx: 0,
+      emptyImg: [URIS.image + '/defaults/c-image/mine/pic-empty_coupon@2x.png', URIS.image + '/defaults/c-image/mine/pic-empty_content@2x.png', URIS.image + '/defaults/c-image/mine/pic-empty_coupon@2x.png'],
+      emptyMsg: ['您还没有相关优惠券', '您还没有相关收藏', '您还没有相关收藏'],
+      couponList: [],
+      contentList: [],
+      kacList: [],
+      LowerLoading: false,
+      page: 1,
+      nothingAdd: false,
+      nothingBoxShow: true,
+      type: 'buy',
+      giftType: 'mine'
+    }
+
+    components = {
+      Underline,
+      coupon,
+      content,
+      giftbag
+    }
+
+    methods = {
+      async changeTab(idx) {
+        this.menuIdx = idx
+        this.contentList = []
+        this.kacList = []
+        this.couponList = []
+        this.$invoke('Underline', 'hide')
+        switch (this.menuIdx) {
+          case 0:
+            let resList = await this._getCouponList(1)
+            this.loaded()
+            if (resList.error !== ERR_OK) {
+              this.$invoke('Toast', 'show', resList.message)
+              return
+            }
+            this.page = 1
+            this.nothingAdd = false
+            this.LowerLoading = false
+            this.couponList = resList.data
+            if (this.couponList.length > 0) {
+              this.nothingBoxShow = false
+            } else {
+              this.nothingBoxShow = true
+            }
+            this.$apply()
+            break
+          case 1:
+            this.page = 1
+            this.nothingAdd = false
+            this.LowerLoading = false
+            let resList1 = await this._getContentList(1)
+            this.loaded()
+            if (resList1.error !== ERR_OK) {
+              this.$invoke('Toast', 'show', resList1.message)
+              return
+            }
+            this.contentList = resList1.data
+            if (this.contentList.length > 0) {
+              this.nothingBoxShow = false
+            } else {
+              this.nothingBoxShow = true
+            }
+            this.$apply()
+            break
+          case 2:
+            this.page = 1
+            this.nothingAdd = false
+            this.LowerLoading = false
+            let resList2 = await mySelect.getKacList(1)
+            this.loaded()
+            if (resList2.error !== ERR_OK) {
+              this.$invoke('Toast', 'show', resList2.message)
+              return
+            }
+            this.kacList = resList2.data
+            if (this.kacList.length > 0) {
+              this.nothingBoxShow = false
+            } else {
+              this.nothingBoxShow = true
+            }
+            this.$apply()
+            break
+        }
+      },
+      async couponLower() {
+        if (!this.LowerLoading && !this.nothingAdd) {
+          this.LowerLoading = true
+          this.page++
+          let Json = await this._getCouponList(this.page)
+          if (Json.error !== ERR_OK) {
+            this.loaded()
+            this.$invoke('Toast', 'show', Json.message)
+            return
+          }
+          let res = Json.data
+          if (res.length === 0) {
+            this.nothingAdd = true
+            this.$invoke('Underline', 'show')
+          }
+          let resArr = res
+          this.couponList.push(...resArr)
+          this.LowerLoading = false
+          this.$apply()
+          this.loaded()
+        } else if (this.nothingAdd) {
+          // 到底
+        }
+      },
+      async contentLower() {
+        if (!this.LowerLoading && !this.nothingAdd) {
+          this.LowerLoading = true
+          this.page++
+          let Json = await this._getContentList(this.page)
+          if (Json.error !== ERR_OK) {
+            this.loaded()
+            this.$invoke('Toast', 'show', Json.message)
+            return
+          }
+          let res = Json.data
+          if (res.length === 0) {
+            this.nothingAdd = true
+            this.$invoke('Underline', 'show')
+          }
+          this.contentList.push(...res)
+          this.LowerLoading = false
+          this.$apply()
+          this.loaded()
+        } else if (this.nothingAdd) {
+          // 到底
+        }
+      },
+      async kacLower() {
+        if (!this.LowerLoading && !this.nothingAdd) {
+          this.LowerLoading = true
+          this.page++
+          let Json = await mySelect.getKacList(this.page)
+          if (Json.error !== ERR_OK) {
+            this.loaded()
+            this.$invoke('Toast', 'show', Json.message)
+            return
+          }
+          let res = Json.data
+          if (res.length === 0) {
+            this.nothingAdd = true
+            this.$invoke('Underline', 'show')
+          }
+          this.contentList.push(...res)
+          this.LowerLoading = false
+          this.$apply()
+          this.loaded()
+        } else if (this.nothingAdd) {
+          // 到底
+        }
+      },
+      toRecommend() {
+        wx.switchTab({url: '/pages/trading-area/trading-area'})
+      },
+      showStore(idx) {
+        this._checked(this.kacList, idx)
+        this.$apply()
+      }
+    }
+
+    async onShow() {
+      await this.load()
+    }
+
+    async load() {
+      this.nothingAdd = false
+      this.$invoke('Underline', 'hide')
+      let limit
+      switch (this.menuIdx * 1) {
+        case 0:
+          if (this.nothingAdd || this.couponList.length >= 100) {
+            limit = 100
+          } else {
+            limit = Math.ceil(this.couponList.length / 10) * 10 || 10
+          }
+          let res = await this._getCouponList(1, limit)
+          if (res.error !== ERR_OK) {
+            this.loaded()
+            return
+          }
+          this.couponList = res.data
+          if (this.couponList.length > 0) {
+            this.nothingBoxShow = false
+          } else {
+            this.nothingBoxShow = true
+          }
+          break
+        case 1:
+          if (this.nothingAdd || this.contentList.length >= 100) {
+            limit = 100
+          } else {
+            limit = Math.ceil(this.contentList.length / 10) * 10 || 10
+          }
+          let res1 = await this._getContentList(1, limit)
+          if (res1.error !== ERR_OK) {
+            this.loaded()
+            return
+          }
+          this.contentList = res1.data
+          if (this.contentList.length > 0) {
+            this.nothingBoxShow = false
+          } else {
+            this.nothingBoxShow = true
+          }
+          break
+        case 2:
+          if (this.nothingAdd || this.kacList.length >= 100) {
+            limit = 100
+          } else {
+            limit = Math.ceil(this.kacList.length / 10) * 10 || 10
+          }
+          let res2 = await mySelect.getKacList(1, limit)
+          if (res2.error !== ERR_OK) {
+            this.loaded()
+            return
+          }
+          this.kacList = res2.data
+          if (this.kacList.length > 0) {
+            this.nothingBoxShow = false
+          } else {
+            this.nothingBoxShow = true
+          }
+          break
+      }
+      this.$apply()
+      this.loaded()
+    }
+
+    async _getCouponList(page, limit = 10) {
+      return await mySelect.getSelectList(page, limit)
+    }
+
+    async _getContentList(page, limit = 10) {
+      return await mySelect.getContentList(page, limit)
+    }
+
+    _checked(arr, idx) {
+      arr.forEach((item, index) => {
+        if (idx * 1 === index * 1) {
+          item.checked = item.checked ? '' : '1'
+        }
+      })
+    }
+
+    events = {
+      contentClick(id, merchantId) {
+        this.$navigate('/pages/content-detail/content-detail?id=' + id + '&currentMerchant=' + merchantId)
+      },
+      giftbagClick(id, merchantId) {
+        this.$navigate('/pages/coupon-detail/coupon-detail?type=2&id=' + id + '&currentMerchant=' + merchantId)
+      },
+      buy(item) {
+        let id = item.promotion.id
+        let merchantId = item.promotion.merchant_id
+        this.$navigate('/pages/coupon-detail/coupon-detail?type=1&id=' + id + '&currentMerchant=' + merchantId)
+      },
+      get(item) {
+        let id = item.promotion.id
+        this.$navigate('/pages/coupon-particulars/coupon-particulars?id=' + id)
+      },
+      use(item) {
+        let id = item.promotion.id
+        this.$navigate('/pages/coupon-particulars/coupon-particulars?id=' + id)
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../../common/stylus/variable"
+
+  .mySelect
+
+    .mySelect-midMoney
+      font-size: $font-size-medium
+      font-family: PingFangSC-Semibold
+
+    .mySelect-bigMoney
+      color: #5D5D5D
+      font-size: 40px
+      font-family: Impact
+
+    .mySelect-tab
+      display: flex
+      height: 8vh
+      background: $color-highlight-background
+
+      .mySelect-tab-item
+        flex: 1
+        display: flex
+        justify-content: center
+        border-bottom: .5px solid $color-row-line
+
+        .mySelect-tab-itemTxt
+          color: $color-text
+          font-size: $font-size-medium
+          text-align: center
+          line-height: 8vh
+          width: 71px
+
+        .mySelect-tab-itemTxt.active
+          position: relative
+          &:before
+            content : ''
+            width: 30px
+            height: 2px
+            position: absolute
+            left: 50%
+            transform :translateX(-50%)
+            bottom: 0px
+            background :$color-theme
+
+    .mySelect-nothing
+      height: 201px
+      background: $color-highlight-background
+      border-bottom: .5px solid $color-row-line
+      display: flex
+      flex-direction: column
+      align-items: center
+
+      .mySelect-nothing-img
+        width: 100px
+        height: 80px
+        margin-top: 25px
+        margin-bottom: 8.5px
+
+      .mySelect-nothing-txt
+        font-size: $font-size-small
+        line-height: 16.5px
+        margin-bottom: 15px
+
+      .mySelect-nothingBtn
+        width: 85.5px
+        height: 24px
+        border: 1px solid $color-row-line
+        text-align: center
+        line-height: 24px
+        font-size: $font-size-small
+        border-radius: 2px
+
+        &:active
+          border: 1px solid $color-button
+          color: $color-button
+
+    .mySelect-couponList
+      max-height: 92vh
+      .mySelect-couponList-box
+        padding: 0 12px
+        margin-top: 10px
+
+    .mySelect-contentList
+      max-height: 92vh
+      .mySelect-contentList-box
+        padding: 0 12px
+        margin-top: 10px
+
+    .mySelect-kacList
+      max-height: 92vh
+      .mySelect-kacList-box
+        padding: 0 12px
+        margin-top: 10px
+</style>

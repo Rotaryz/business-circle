@@ -1,0 +1,221 @@
+<template>
+  <view class="address">
+    <view
+      class="address-item"
+      wx:for="{{addressList}}"
+      wx:key="{{item.type}}"
+      id="{{item.type}}"
+      @tap="editorAddress"
+    >
+      <image class="icon" wx:if="{{imageUri}}" src="{{item.iconPath}}"></image>
+      <view class="name">{{item.name}}</view>
+      <view class="inputContent {{item.inputContent === '请输入地址' ? 'empty' : ''}}">{{item.inputContent}}</view>
+      <image class="editor" wx:if="{{imageUri}}"
+             src="{{imageUri + '/defaults/c-image/square/icon-address_a@2x.png'}}"></image>
+    </view>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import URIS from 'common/js/config'
+  import Address from 'api/address'
+  import base from 'common/mixins/base'
+  import users from 'common/mixins/users'
+  import {ERR_OK} from 'api/base'
+
+  export default class Template extends wepy.page {
+    mixins = [base, users]
+    data = {
+      imageUri: URIS.image,
+      addressList: [{
+        iconPath: `${URIS.image}/defaults/c-image/square/icon-address_home@2x.png`,
+        name: '家',
+        inputContent: '请输入地址',
+        type: 1
+      }, {
+        iconPath: `${URIS.image}/defaults/c-image/square/icon-address_c@2x.png`,
+        name: '公司',
+        inputContent: '请输入地址',
+        // inputContent: '请输入地址请输入地址请输入地址请输入地址请输入地址请输入地址请输入地址请输入地址请输入地址请输入地址',
+        type: 2
+      }]
+    }
+
+    async onLoad() {
+      await this._init()
+      // await this.test()
+    }
+
+    async onShow() {
+      const info = await this.getAddressList()
+      this.resolveData(info.data)
+    }
+
+    // 测试代码
+    async test() {
+      const info = await this.getAddressList()
+      info.data.map(async (item) => {
+        await Address.deleteAddress(item.id)
+      })
+      this.loaded()
+    }
+
+    // 分解服务器数据
+    resolveData(data) {
+      data.map((item, index) => {
+        const isContinue = item.type && this.addressList[index].type === item.type
+        if (isContinue) {
+          // 添加对应的id
+          item.id && (this.addressList[index].id = item.id)
+          // 添加对应的地址
+          item.address && (this.addressList[index].inputContent = item.address)
+        }
+      })
+      this.$apply()
+    }
+
+    async _init() {
+      // 是否授权
+      await this.isAuthorise()
+      this.loaded()
+    }
+
+    // 获取地址列表
+    async getAddressList() {
+      const info = await Address.getAddressList()
+      this.loaded()
+      return info
+    }
+
+    // 设置地址
+    async setAddress(data) {
+      try {
+        return await Address.postAddress(data)
+      } catch (e) {
+        return e
+      } finally {
+        this.loaded()
+      }
+    }
+
+    // 修改地址
+    async updateAddress(data, id) {
+      try {
+        return await Address.putAddress(data, id)
+      } catch (e) {
+        return e
+      } finally {
+        this.loaded()
+      }
+    }
+
+    /* eslint-disable no-useless-call */
+
+    // 选择地址
+    async chooseLocation(type, id) {
+      const self = this
+      wx.chooseLocation({
+        async success(res) {
+          // 格式化数据
+          const data = Object.assign({type}, self.formatData(res))
+          // 更新数据
+          const updateJson = await self.updateAddress.call(self, data, id)
+          if (updateJson.error === ERR_OK) {
+            self.addressList[type - 1].inputContent = data.detail
+            self.$apply()
+          } else {
+            // 失败则添加数据
+            const setJson = await self.setAddress.call(self, data)
+            if (setJson.error === ERR_OK) {
+              self.addressList[type - 1].inputContent = data.detail
+              self.$apply()
+            }
+          }
+        },
+        async fail(res) {
+          // console.log(res)
+        }
+      })
+    }
+
+    /* eslint-enable no-useless-call */
+
+    // 格式化数据
+    formatData(res) {
+      const detail = res.address
+      const longitude = res.longitude
+      const latitude = res.latitude
+      return {detail, 'app_longitude': longitude, 'app_latitude': latitude}
+    }
+
+    methods = {
+      async editorAddress(e) {
+        // type:1-家,2-公司
+        const type = e.currentTarget.id
+        // 获取对应的id
+        const id = this.addressList[type - 1].id
+        // 选择地址
+        await this.chooseLocation(type, id)
+      }
+    }
+
+    config = {
+      navigationBarTitleText: '场景地址'
+    }
+  }
+</script>
+
+<style lang='stylus'>
+  @import "../../../common/stylus/mixin.styl"
+  @import "../../../common/stylus/variable.styl"
+
+  .address
+    .address-item
+      position: relative
+      layout(row, block, no-warp)
+      align-items: flex-start
+      width: 100vw
+      min-height: 43px
+      box-sizing: border-box
+      background-color: $color-highlight-background
+      padding: 5px 0 14.75px
+      &:after
+        content: ""
+        position: absolute
+        bottom: 0
+        margin-left: 3.1vw
+        width: 100vw
+        height: 1px
+        border-bottom: .5px solid $color-row-line
+      &:last-child:after
+        margin-left: 0
+      > .icon
+        display: inline-block
+        width: 19px
+        height: 19px
+        margin: 12.25px 2.5vw 0 3.1vw
+      > .name
+        font-size: $font-size-medium
+        color: $color-text-d
+        width: 15.2vw
+        font-family: PingFangSC-Light
+        margin-top: 14.75px
+      > .inputContent
+        width: 57.6vw
+        font-size: $font-size-medium
+        color: $color-text-d
+        font-family: PingFangSC-Light
+        margin-top: 14.75px
+        &.empty
+          color: $color-text-9b
+      > .editor
+        position: absolute
+        display: inline-block
+        margin-top: 19.3px
+        top: 0
+        right: 7.6vw
+        width: 13px
+        height: 13px
+</style>

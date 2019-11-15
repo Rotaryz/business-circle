@@ -1,0 +1,213 @@
+<template>
+  <view class="comall">
+    <view class="shade"></view>
+    <scroll-view scroll-y="true" scroll-into-view="item{{comment.length-1}}"
+                 @tap.stop="hideInput" style="height: {{height}}">
+      <repeat for="{{comment}}" key="index" index="index" item="item">
+        <view class="com_item" id="item{{index}}">
+          <text class="com_name">{{item.customer_name}}：</text>
+          <text class="com_msg">{{item.content}}</text>
+        </view>
+      </repeat>
+    </scroll-view>
+    <image class="btn_com btn_com-fi" wx:if="{{imageUrlHead}}"
+           src="{{imageUrlHead + '/defaults/c-image/live/icon-share-zhib.png'}}"
+           @tap="shares"/>
+    <image class="btn_com"
+           src="{{imageUrlHead + '/defaults/c-image/live/icon- info.png'}}"
+           wx:if="{{!showCom && imageUrlHead}}"
+           @tap="showInput"/>
+    <view class="inp_cpm" wx:if="{{showCom}}">
+      <input type="text" placeholder="弹幕更容易引起主播的注意哦~" @input="bindTestInput"
+             value="{{content}}" focus="true"
+             bindconfirm="putContent({{activityId}})"/>
+      <view @tap.default="putContent({{activityId}})">
+        <image wx:if="{{imageUrlHead}}"
+               src="{{imageUrlHead + '/defaults/c-image/live/icon-sendout.png'}}"></image>
+      </view>
+    </view>
+    <Share :qrcode.sync="qrcode"
+           :promotionImages.sync="promotionImages" :shop.sync="shop"></Share>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import Live from 'api/live'
+  import base from 'common/mixins/base'
+  import users from 'common/mixins/users'
+  import Share from '@/base/share/share'
+  import Info from 'api/info'
+  import URIS from 'common/js/config'
+  export default class Comment extends wepy.page {
+    mixins = [users, base]
+    components = {
+      Share: Share
+    }
+    props = {
+      comment: {
+        type: Array,
+        default: []
+      },
+      activityId: {
+        type: Number,
+        default: 0
+      },
+      videoImages: {
+        type: String,
+        default: ''
+      },
+      shopName: {
+        type: String,
+        default: ''
+      },
+      currentMerchant: {
+        type: String,
+        default: ''
+      }
+    }
+    data = {
+      imageUrlHead: URIS.image,
+      showCom: false,
+      content: '',
+      ifHide: 0,
+      qrcode: '',
+      promotionImages: '',
+      shop: '',
+      height: '80%'
+    }
+
+    async _createQrcode() {
+      setTimeout(async () => {
+        let currentPage = `/pages/live/live?currentMerchant=${this.currentMerchant}`
+        const res = await Info.createQrode({path: currentPage})
+        this.qrcode = res.data.image_url
+        this.$apply()
+      }, 20)
+    }
+
+    async showComment(id) {
+      let res = await Live.getComment(id)
+      this.comment = res.data.reverse()
+      this.loaded()
+      this.$apply()
+    }
+
+    async onLoad() {
+      await this._createQrcode()
+    }
+
+    methods = {
+      showInput() {
+        setTimeout(() => {
+          this.showCom = true
+          this.height = '66%'
+          this.$apply()
+        }, 100)
+      },
+      hideInput() {
+        setTimeout(() => {
+          this.showCom = false
+          this.height = '80%'
+          this.$apply()
+        }, 300)
+      },
+      bindTestInput(e) {
+        this.content = e.detail.value
+      },
+      async putContent(id) {
+        this.ifHide = 1
+        if (this.content !== '') {
+          let res = await Live.setComment(id, this.content)
+          this.content = ''
+          this.comment.push(res.data[0])
+          this.$apply()
+//          this.$emit('putCon', res)
+        } else {
+          wepy.showModal({
+            content: '评论内容不能为空',
+            success: function (res) {
+              if (res.confirm) {
+                console.log('用户点击确定')
+              } else if (res.cancel) {
+                console.log('用户点击取消')
+              }
+            }
+          })
+        }
+        this.loaded()
+      },
+      shares() {
+        this.promotionImages = this.videoImages
+        this.$invoke('Share', 'show', 'live')
+        setTimeout(() => {
+          this.showCom = false
+          this.$apply()
+        }, 300)
+        this.shop = this.shopName
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../common/stylus/variable"
+  @import "../../common/stylus/mixin"
+  .comall
+    height: 24.4%
+    position: relative
+    .shade
+      content: ''
+      position: absolute
+      z-index: 100
+      top: -2px
+      width: 100%
+      height: 32px
+      background: linear-gradient(rgba(112, 107, 130, 1) 40%, rgba(112, 107,
+      130, 0) 100%)
+    scroll-view
+      .com_item
+        font-size: $font-size-small
+        padding: $font-size-medium 0 0 $padding-all
+
+        .com_name
+          color: #A4A3A9
+        .com_msg
+          color: $color-white
+    .btn_com
+      position: absolute
+      width: 32px
+      height: 32px
+      bottom: 16.5px
+      right: $padding-all
+    .btn_com-fi
+      bottom: 60px
+    .inp_cpm
+      height: 32px
+      padding: 5px $padding-all
+      display: flex
+      input
+        display: inline-block
+        background: $color-white
+        flex: 20
+        height: 30px
+        border: 0.5px solid #EBEAF2
+        border-radius: 1px
+        font-size: $font-size-small
+        text-indent: 7px
+      view
+        display: inline-block
+        flex: 3
+        height: 30px
+        border: 0.5px solid #EBEAF2
+        border-radius: 1px
+        margin-left: 5px
+        background: $color-white
+        position: relative
+        image
+          position: absolute
+          width: 30.3%
+          height: 53.4%
+          all-center()
+
+</style>

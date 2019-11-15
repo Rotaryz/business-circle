@@ -1,0 +1,434 @@
+<template>
+  <view class="content-detail">
+    <view class="picture-wrapper">
+      <image src="{{contents.image_url}}" class="full-image" mode="widthFix"></image>
+    </view>
+    <view class="linec-title">
+      <view class="title-content">{{contents.title}}</view>
+    </view>
+    <view class="content-container">
+      <repeat for="{{details}}" key="index" index="index" item="item">
+        <view class="content-wrapper">
+          <view class="content image-wrapper" wx:if="{{item.type === type.image}}">
+            <image class="full-image" src="{{item.detail.url}}" mode="widthFix"></image>
+          </view>
+          <view class="content text-wrapper" wx:if="{{item.type === type.text}}">
+            <text>{{item.text}}</text>
+          </view>
+          <view class="content video-wrapper" wx:if="{{item.type === type.video}}">
+            <view class="video-box">
+              <video wx:if="{{showVideo}}" src="{{item.detail.url}}"></video>
+            </view>
+          </view>
+          <view class="content coupon-wrapper" wx:if="{{item.type === type.coupon}}">
+            <coupon :coupon.sync="item" :type="couponType"></coupon>
+          </view>
+        </view>
+      </repeat>
+    </view>
+    <view class="fix-btn-wrapper">
+      <view class="collect" @tap="checkCustomer">
+        <image wx:if="{{imageUri && !isFavorite}}" src="{{imageUri + '/defaults/c-image/recommend/icon-collection1@2x.png'}}" class="full-image"></image>
+        <image wx:if="{{imageUri && isFavorite}}" src="{{imageUri + '/defaults/c-image/recommend/icon-collection2@2x.png'}}" class="full-image"></image>
+      </view>
+      <view class="share-btn" @tap="showShareModal">
+        <image wx:if="{{imageUri}}" src="{{imageUri + '/defaults/c-image/recommend/icon-sharepolite@2x.png'}}" class="full-image"></image>
+        <view class="red" wx:if="{{contents.activity_share}}">
+          <image wx:if="{{imageUri}}" src="{{imageUri + '/defaults/c-image/recommend/pic-openmoney@2x.png'}}" class="full-image"></image>
+        </view>
+      </view>
+    </view>
+    <!--<phone-test @isPhoneOk.user="storeToggle"></phone-test>-->
+    <share :qrcode.sync="qrcode" :detail.sync="contents" @sharePunchLine.user="sharePunchLine"></share>
+    <share-modal @hide.user="showVideoPlay">
+      <view slot="content" class="base-modal-content">
+        <view class="header-wrapper">
+          <view class="title">现金红包</view>
+          <view class="cash">{{sharePrice}}<text class="yuan">元</text></view>
+        </view>
+        <view class="content">
+          <view class="text">现金已经存放入您的账户</view>
+          <view class="text">可进入个人中心-红包查看详情</view>
+        </view>
+        <view class="btn-wrapper">
+          <!--<view class="share"></view>-->
+          <navigator url="/pages/user/redPacket/redPacket" class="btn">查看红包</navigator>
+        </view>
+      </view>
+    </share-modal>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import users from 'common/mixins/users'
+  import {ERR_OK} from 'api/base'
+  import ContentsApi from 'api/contents'
+  import Coupon from '@/base/coupon-item/coupon-item'
+  import PhoneTest from '@/base/phoneTest/phoneTest'
+  import Share from '@/base/share/share'
+  import BaseModal from '@/base/base-modal/base-modal'
+  import URIS from 'common/js/config'
+  import Info from 'api/info'
+  import Shares from 'api/share'
+  import {getParams} from 'common/js/data'
+
+  const IMAGE_TYPE = 0
+  const TEXT_TYPE = 1
+  const VIDEO_TYPE = 2
+  const COUPON_TYPE = 3
+
+  export default class ContentDetail extends wepy.page {
+    mixins = [base, users]
+
+    data = {
+      imageUri: URIS.image,
+      authorise: false,
+      id: '',
+      contents: {},
+      details: [],
+      isFavorite: false,
+      showVideo: true,
+      sharePrice: 0,
+      type: {
+        image: IMAGE_TYPE,
+        text: TEXT_TYPE,
+        video: VIDEO_TYPE,
+        coupon: COUPON_TYPE,
+        couponType: 1
+      },
+      qrcode: '',
+      currentMerchant: '',
+      couponType: 'buy',
+      showSoya: true
+    }
+
+    onShareAppMessage(res) {
+      const user = this.$parent.globalData.user
+      if (res.from === 'button') {
+        // 来自页面内转发按钮
+//        console.log(res.target)
+      }
+      return {
+        title: user.nickName + '邀请你购买优惠券',
+        path: this.currentPage,
+        success: async () => {
+          // 转发成功
+          await this._getSharePrize()
+          await this._getShareSoya()
+          this.loaded()
+        },
+        fail: (res) => {
+          // 转发失败
+          console.log(res)
+        }
+      }
+    }
+
+    async onLoad(option) {
+      await this.upLoadImage()
+      if (option.scene) {
+        let scene = decodeURIComponent(option.scene)
+        const params = getParams(scene)
+        this.id = params.id
+        this.currentMerchant = params.merchantid
+        if (!wepy.getStorageSync('token')) {
+          await this.$getUserInfo(false, true)
+        }
+      } else {
+        this.id = option.id
+        this.currentMerchant = option.currentMerchant
+      }
+      this.currentPage = `/pages/content-detail/content-detail?id=${option.id}&merchantid=${this.currentMerchant}`
+      await this.load()
+    }
+
+    async load() {
+//      await this._getUserInfo()
+      await this._createQrcode()
+//      await this._checkAuthorise()
+      await this._getContentDetail()
+      this.loaded()
+    }
+
+    async _createQrcode() {
+      const res = await Info.createQrode({path: this.currentPage})
+      if (res.error === ERR_OK) {
+        const data = res.data
+        this.qrcode = data.image_url
+      }
+    }
+//
+//    async _getUserInfo() {
+//      await this.$getUserInfo()
+//    }
+
+    async _getSharePrize() {
+      await ContentsApi.setShare(this.id)
+      if (!this.contents.activity_share) {
+        return
+      }
+      const json = await Shares.getSharePrize({current_merchant: this.currentMerchant})
+      if (json.error !== ERR_OK) {
+        this.loaded()
+        return
+      }
+      const res = json.data
+      this.sharePrice = res.price
+      this.showVideo = false
+      this.contents.activity_share = false
+      if (this.sharePrice) {
+        this.loaded()
+        this.$invoke('share-modal', 'show')
+        this.showSoya = false
+      } else {
+        this.showSoya = true
+      }
+      this.$apply()
+    }
+
+    async _getShareSoya() {
+      const resData = await Shares.getShareSoya('share')
+      if (resData.error !== ERR_OK) {
+        this.loaded()
+        this.$invoke('toast', 'show', resData.message)
+        return
+      }
+      if (resData.error === ERR_OK && resData.code === 10002) {
+        this.loaded()
+        return
+      }
+      const res = resData.data
+      let total = res.score_value
+      if (this.showSoya) {
+        this.loaded()
+        this.$invoke('popout', 'openPoput', 'share', total, '分享')
+      }
+    }
+
+//    async _checkAuthorise() {
+//      const isAuthorise = await this.isAuthorise()
+//      this.authorise = isAuthorise
+//    }
+
+    async _getContentDetail() {
+      const json = await ContentsApi.getContentDetail(this.id)
+      if (json.error === ERR_OK) {
+        const data = json.data
+        wepy.setNavigationBarTitle({title: data.title})
+        this.contents = data
+        this.details = this._checkContentCoupon(data.content_details)
+        this.isFavorite = data.is_favorite
+      }
+    }
+
+    async _storeToggle() {
+      const id = this.id
+      if (this.isFavorite) {
+//        取消收藏
+        await ContentsApi.cancelStoreContent(id)
+      } else {
+        await ContentsApi.storeContent(id)
+      }
+      await this._getContentDetail()
+      this.loaded()
+    }
+
+    methods = {
+      showShareModal() {
+        this.$invoke('share', 'show', 'content')
+      },
+      showVideoPlay() {
+        this.showVideo = true
+      },
+      async sharePunchLine() {
+        await this._getSharePrize()
+      },
+      async checkCustomer() {
+//        if (!this.authorise) {
+//          this.$invoke('phone-test', 'show')
+//          return
+//        }
+        await this._storeToggle()
+      },
+      async storeToggle() {
+        await this._storeToggle()
+      }
+    }
+
+    _checkContentCoupon(arr) {
+      let res = arr.filter((item) => {
+        return item.detail || item.type === 1
+      })
+      return res.map((item) => {
+        if (item.type === COUPON_TYPE) {
+          item = Object.assign({}, item, item.detail)
+        }
+        return item
+      })
+    }
+
+    events = {
+      buy(item) {
+        let id = item.promotion.id
+        let merchantId = item.promotion.merchant_id
+        this.$navigate('/pages/coupon-detail/coupon-detail?type=1&id=' + id + '&currentMerchant=' + merchantId)
+      },
+      get(item) {
+        let id = item.promotion.id
+        this.$navigate('/pages/coupon-particulars/coupon-particulars?id=' + id)
+      },
+      use(item) {
+        let id = item.promotion.id
+        this.$navigate('/pages/coupon-particulars/coupon-particulars?id=' + id)
+      }
+    }
+
+    config = {
+      navigationBarTitleText: '内容详情'
+    }
+
+    components = {
+      'coupon': Coupon,
+      'phone-test': PhoneTest,
+      'share': Share,
+      'share-modal': BaseModal
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../common/stylus/variable"
+  @import "../../common/stylus/mixin"
+
+  .content-detail
+    width: 100%
+    min-height: 100vh
+    background-color: $color-white
+    .picture-wrapper
+      width: 100%
+      height: 40vw
+      margin-bottom: 20px
+      overflow: hidden
+      .image
+        width: 100%
+    .linec-title
+      margin-bottom: 20px
+      padding: 0 12px
+      .title-content
+        position: relative
+        display: inline-block
+        font-size: $font-size-large
+        font-family: PingFang-SC-Medium
+    .content-wrapper
+      margin-bottom: 10px
+      &:last-child
+        margin-bottom: 0
+      .content
+        &.image-wrapper
+          padding: 0 12px
+          image
+            width: 100%
+            border-radius: 4px
+        &.text-wrapper
+          padding: 5px 12px
+          line-height: 23px
+          font-size: $font-size-medium
+          color: $color-text-d
+          background-color: $color-white
+          text
+            width: 100%
+            word-wrap: break-word
+            word-break: break-all
+
+        &.video-wrapper
+          padding: 0 12px
+          .video-box
+            background-color: $color-black
+            position: relative
+            height: 0
+            padding-top: 53.3333333333%
+            video
+              position: absolute
+              top: 0
+              left: 0
+              width: 100%
+              height: 100%
+        &.coupon-wrapper
+          padding: 0 12px
+          background-color: $color-white
+    .fix-btn-wrapper
+      position: fixed
+      right: 12px
+      bottom: 123.5px
+      width: 50px
+      height: 106.5px
+      .collect
+        width: 50px
+        height: 50px
+        margin-bottom: 6.5px
+      .share-btn
+        position: relative
+        width: 50px
+        height: 50px
+        .red
+          position: absolute
+          top: -4px
+          right: -2px
+          width: 27.5px
+          height: 12px
+          image
+            display: block
+    .base-modal-content
+      .header-wrapper
+        height: 124.5px
+        padding-top: 13.5px
+        box-sizing: border-box
+        background-color: $color-prize-bc
+        .title
+          position: relative
+          margin-bottom: 17.5px
+          font-size: $font-size-small
+          color: $color-white
+          text-align: center
+          &:before, &:after
+            content: ''
+            position: absolute
+            top: 4px
+            display: block
+            width: 40px
+            height: 1px
+            border-bottom: 1px solid $color-white
+          &:before
+            left: 58px
+          &:after
+            right: 58px
+        .cash
+          text-align: center
+          font-size: 30px
+          color: $color-yellow
+          .yuan
+            font-size: $font-size-small
+      .content
+        margin-top: 24px
+        text-align: center
+        .text
+          line-height: 17px
+          font-size: $font-size-small
+          color: $color-text-d
+      .btn-wrapper
+        margin-top: 60px
+        padding: 0 20px
+        .btn
+          height: 40px
+          border-radius: 4px
+          line-height: 40px
+          text-align: center
+          font-size: $font-size-small
+          color: $color-white
+          background-color: $color-prize-bc
+
+    .content-container
+      padding-bottom: 10px
+</style>

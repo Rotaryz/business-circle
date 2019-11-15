@@ -1,0 +1,188 @@
+<template>
+  <view class="pay-result">
+    <view class="status-wrapper border-bottom-1px">
+      <view class="icon-pay">
+        <image src="{{icon}}" class="full-image"></image>
+      </view>
+      <view class="desc">
+        <view class="price">订单金额: <text class="number">{{total}}</text><text class="yuan">元</text></view>
+      </view>
+      <view class="check-order" @tap="checkOrder">
+        查看订单
+      </view>
+    </view>
+    <view class="recommend">
+      <view class="title">
+        <view class="left-line"></view>
+        <text class="content">推荐</text>
+        <view class="right-line"></view>
+      </view>
+      <view class="coupons-wrapper">
+        <repeat for="{{coupons}}" key="index" index="index" item="item">
+          <view class="couponList-box">
+            <coupon :coupon.sync="item" :type="type"></coupon>
+          </view>
+        </repeat>
+      </view>
+    </view>
+    <popout></popout>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import {ERR_OK} from 'api/base'
+  import Coupon from '@/base/coupon-item/coupon-item'
+  import Merchants from 'api/merchants'
+  import URIS from 'common/js/config'
+  import Popout from '@/base/integral-popout/integral-popout'
+  import Shares from 'api/share'
+
+  export default class PayResult extends wepy.page {
+    mixins = [base]
+
+    data = {
+      imageUri: URIS.image,
+      coupons: [],
+      total: '',
+      icon: '',
+      type: 'buy',
+      merchantId: '',
+      orderId: 0
+    }
+
+    async onLoad(option) {
+      this.total = option.total
+      const status = option.status
+      this.orderId = option.orderId
+      this.merchantId = option.merchantId
+      if (status === 'success') {
+        wepy.setNavigationBarTitle({title: '支付成功'})
+        this.icon = `${this.imageUri}/defaults/c-image/recommend/icon-success@2x.png`
+      } else {
+        wepy.setNavigationBarTitle({title: '支付失败'})
+        this.icon = `${this.imageUri}/defaults/c-image/recommend/icon-fail@2x.png`
+      }
+      await this._getCouponList()
+      if (status === 'success') {
+        await this._getShareSoya()
+      }
+      this.loaded()
+    }
+
+    async _getCouponList() {
+      const merchantId = this.merchantId
+      const json = await Merchants.getCoupons(merchantId)
+      if (json.error === ERR_OK) {
+        let list = json.data
+        if (list.length < 5) {
+          this.coupons = list
+        } else {
+          this.coupons = list.splice(0, 3)
+        }
+        this.$apply()
+      }
+    }
+
+    async _getShareSoya() {
+      const resData = await Shares.getShareSoya('pay', this.orderId)
+      if (resData.error !== ERR_OK) {
+        this.loaded()
+        this.$invoke('toast', 'show', resData.message)
+        return
+      }
+      if (resData.error === ERR_OK && resData.code === 10002) {
+        this.loaded()
+        return
+      }
+      const res = resData.data
+      let total = res.score_value
+      this.loaded()
+      this.$invoke('popout', 'openPoput', 'pay', total, '下单')
+    }
+
+    methods = {
+      checkOrder() {
+        this.$redirect('/pages/user/myOrder/myOrder?idx=1')
+      }
+    }
+
+    components = {
+      coupon: Coupon,
+      'popout': Popout
+    }
+
+    events = {
+      buy(item) {
+        let id = item.promotion.id
+        let merchantId = item.promotion.merchant_id
+        this.$redirect('/pages/coupon-detail/coupon-detail?type=1&id=' + id + '&currentMerchant=' + merchantId)
+      },
+      get(item) {
+        let id = item.promotion.id
+        this.$redirect('/pages/coupon-particulars/coupon-particulars?id=' + id)
+      },
+      use(item) {
+        let id = item.promotion.id
+        this.$redirect('/pages/coupon-particulars/coupon-particulars?id=' + id)
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../common/stylus/variable"
+  @import "../../common/stylus/mixin"
+
+  .pay-result
+    .status-wrapper
+      display: flex
+      flex-direction: column
+      align-items: center
+      justify-content: center
+      height: 191px
+      background-color: $color-white
+      .icon-pay
+        width: 64px
+        height: 64px
+        margin-bottom: 7.5px
+      .price
+        margin-bottom: 30px
+        font-size: $font-size-medium-x
+        .number
+          font-family: "PingFangSC-Medium"
+          font-size: $font-size-large
+          color: $color-text-t
+        .yuan
+          font-size: $font-size-small-s
+          color: $color-text-t
+      .check-order
+        width: 150px
+        height: 28px
+        line-height: 28px
+        border-1px()
+        border-radius: 2px
+        text-align: center
+        font-size: $font-size-medium
+        color: $color-text-d
+    .recommend
+
+      .title
+        position: relative
+        display: flex
+        align-items: center
+        justify-content: center
+        height: 53px
+        line-height: 53px
+        text-align: center
+        font-size: $font-size-medium
+        color: $color-text-d
+        margin: 0 12px
+        .left-line, .right-line
+          width: 67.5px
+          margin: 0 6.25px
+          border: 1px solid $color-col-line
+  .couponList-box
+    padding: 10px 12px 0
+</style>

@@ -1,0 +1,304 @@
+<template>
+  <view class="square-list">
+    <scroll-view
+      class="banner-box"
+      scroll-x="true"
+      scroll-with-animation="true"
+      scroll-left="{{left}}"
+      @tap="select">
+      <view class="item {{current===item.id?'hit':''}}" wx:for="{{industryList}}" wx:key="{{item.id}}"
+            id="{{item.id}}">
+        {{item.name}}
+      </view>
+    </scroll-view>
+    <view class="content-box" scroll-y>
+      <view class="noMsg" wx:if="{{list.length<=0}}">
+        <image class="empty-pic" wx:if="{{imageUri}}"
+               src="{{imageUri + '/defaults/c-image/square/icon-s_empty@2x.png'}}"></image>
+        <text class="empty-msg">暂无数据</text>
+      </view>
+      <view class="list-box" wx:if="{{list.length>0}}">
+        <view class="item" wx:for="{{list}}" wx:key="{{item.id}}" @tap="openMini({{item}})">
+          <image class="logo" wx:if="{{item.logoUrl}}"
+                 src="{{item.logoUrl}}" mode="aspectFill"></image>
+          <view class="info">
+            <view class="name info-item">{{item.name}}</view>
+            <view class="evaluate info-item">
+              <text class="people">大众点评</text>
+              <!-- 图片01全星,02半星,03灰星-->
+              <view class="stars">
+                <image class="star" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/c-image/square/' + (item.shopPower === 0.5 ? 'icon-s_star02@2x.png' : item.shopPower >= 1 ? 'icon-s_star01@2x.png' : 'icon-s_star03@2x.png')}}"></image>
+                <image class="star" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/c-image/square/' + (item.shopPower === 1.5 ? 'icon-s_star02@2x.png' : item.shopPower >= 2 ? 'icon-s_star01@2x.png' : 'icon-s_star03@2x.png')}}"></image>
+                <image class="star" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/c-image/square/' + (item.shopPower === 2.5 ? 'icon-s_star02@2x.png' : item.shopPower >= 3 ? 'icon-s_star01@2x.png' : 'icon-s_star03@2x.png')}}"></image>
+                <image class="star" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/c-image/square/' + (item.shopPower === 3.5 ? 'icon-s_star02@2x.png' : item.shopPower >= 4 ? 'icon-s_star01@2x.png' : 'icon-s_star03@2x.png')}}"></image>
+                <image class="star" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/c-image/square/' + (item.shopPower === 4.5 ? 'icon-s_star02@2x.png' : item.shopPower >= 5 ? 'icon-s_star01@2x.png' : 'icon-s_star03@2x.png')}}"></image>
+              </view>
+            </view>
+            <view class="active info-item">
+              <text class="action active-item">活动 {{item.activityCount}}</text>
+              <text class="discounts active-item">优惠 {{item.promotionCount}}</text>
+            </view>
+          </view>
+          <view class="distance">{{item.distanch}}km</view>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import users from 'common/mixins/users'
+  import base from 'common/mixins/base'
+  import URIS from 'common/js/config'
+  import Merchants from 'api/merchants'
+  import {ERR_OK} from 'api/base'
+
+  /**
+   * 获取设备尺寸
+   * @returns {{width: *, height: *}}
+   */
+  function getDeviceInfo() {
+    const res = wepy.getSystemInfoSync()
+    const width = res.windowWidth
+    const height = res.windowHeight
+    return {width, height}
+  }
+
+  const deviceInfo = getDeviceInfo()
+
+  export default class SquareList extends wepy.page {
+    mixins = [base, users]
+
+    data = {
+      imageUri: URIS.image,
+      industryList: [],
+      list: [],
+      left: 0,
+      current: 0,
+      location: {latitude: 0, longitude: 0},
+      options: {},
+      businessCircleId: 0
+    }
+
+    async onLoad(option) {
+      // 用户凭证
+      await this.isAuthorise()
+      // 赋值
+      this.options = option
+      // 获取位置经纬度
+      const location = await this._getLocation(this.options)
+      // 赋值
+      this.location = location
+      this.businessCircleId = this.options.businessCircleId
+      // 获取商圈id
+//      this.businessCircleId = wepy.getStorageSync('businessCircleId')
+      // 获取商圈行业类型
+      await this._getIndustry()
+      // 获取商圈列表
+      await this._getPlazaMerchants(this.location.longitude, this.location.latitude, this.businessCircleId)
+    }
+
+    async onShow() {
+    }
+
+    async _getIndustry() {
+      const json = await Merchants.getIndustry()
+      if (json.error === ERR_OK) {
+        const res = json.data
+        this.industryList = [{id: 0, name: '全部'}, ...res]
+      }
+    }
+
+    async _getLocation(res) {
+      const location = {longitude: res.longitude * 1, latitude: res.latitude * 1}
+      return location
+    }
+
+    async _getPlazaMerchants(longitude = 0, latitude = 0, businessId, industryId = 0) {
+      // 获取商圈列表
+      const json = await Merchants.getPlazaMerchants(longitude, latitude, industryId, businessId)
+      if (json.error === ERR_OK) {
+        const res = json.data
+        let list = []
+        res.map(item => {
+          // 格式化商圈列表数据
+          list.push(this.formatListData(item))
+        })
+        this.list = list
+        this.loaded()
+      }
+    }
+
+    formatListData(res) {
+      let obj = {}
+      obj.logoUrl = res.logo_url
+      obj.name = res.shop_name
+      obj.distanch = (res.distanch / 1000).toFixed(1)
+      obj.activityCount = res.activity_count
+      obj.promotionCount = res.promotion_count
+      // obj.stars = [1, 1, 1, 2, 3]
+      obj.shopPower = res.shop_power * 1
+      obj.merchantId = res.merchant_id
+      obj.appId = res.app_id
+      obj.appPath = res.path
+      return obj
+    }
+
+    openMini(msg) {
+      let LastBusiness = wepy.getStorageSync('businessCircleId') ? wepy.getStorageSync('businessCircleId') : ''
+      wx.navigateToMiniProgram({
+        appId: msg.app_id,
+        path: `${msg.path}&lastBusiness=${LastBusiness}&scene=12004`,
+        extraData: {},
+        envVersion: URIS.jumpVersion,
+        success(res) {
+          // 打开成功
+        }
+      })
+    }
+
+    async moveAnimation(e) {
+      this.left = e.target.offsetLeft - deviceInfo.width / 2
+      this.current = e.target.id * 1
+    }
+
+    methods = {
+      async select(e) {
+        // 移动动画
+        this.moveAnimation(e)
+        // 查询商圈列表
+        this._getPlazaMerchants(this.location.longitude, this.location.latitude, this.businessCircleId, this.current)
+      },
+      openMini(item) {
+        // 打开小程序
+        this.openMini({
+          app_id: item.appId,
+          path: item.appPath
+        })
+      }
+    }
+
+    config = {
+      navigationBarTitleText: '广场'
+    }
+  }
+</script>
+
+<style lang='stylus' scoped>
+  @import "../../common/stylus/base.styl"
+  @import "../../common/stylus/variable.styl"
+  @import "../../common/stylus/mixin.styl"
+
+  .square-list
+    width: 100vw
+    height: 100vh
+    .banner-box
+      height: 42px
+      width: 100vw
+      white-space: nowrap
+      background-color: $color-highlight-background
+      .item
+        box-sizing: border-box
+        display: inline-block
+        height: 42px
+        width: 56px
+        margin-left: 10px
+        font-size: $font-size-medium
+        color: $color-text
+        line-height: 42px
+        text-align: center
+        font-family: PingFangSC-Light;
+        letter-spacing: 0;
+      .hit
+        border-bottom: 2px solid $color-text-t
+    .content-box
+      .noMsg
+        height: 82vh
+        width: 100vw
+        layout()
+        justify-content: center
+        align-items: center
+        margin-top: -16.5vh
+        .empty-pic
+          display: inline-block
+          width: 86px
+          height: 71px
+        .empty-msg
+          font-size: $font-size-small
+          color: $color-text
+          margin-top: 10.5px
+          font-family: PingFangSC-Light
+          letter-spacing: 0
+          line-height: $font-size-small
+    .list-box
+      layout()
+      .item
+        position: relative
+        layout(row)
+        align-items: center
+        height: 13.8vh
+        background-color: $color-highlight-background
+        margin-top: 1.5vh
+        > .logo
+          display: inline-block
+          width: 17.3vw
+          height: 17.3vw
+          margin: 0 3.3vw 0 3.1vw
+          border: .5px solid $color-row-line
+          border-radius: 2px
+        > .info
+          width: 60vw
+          height: 17.3vw
+          layout()
+          justify-content: space-around
+          .name
+            color: $color-text
+            font-family: PingFangSC-Medium
+            font-size: $font-size-medium
+            letter-spacing: 0.42px;
+            line-height: $font-size-medium
+            no-wrap()
+          .evaluate
+            color: $color-orange
+            font-family: PingFangSC-Light;
+            font-size: $font-size-small
+            line-height: 10px;
+            .people
+              margin-right: 8.5px
+            .stars
+              display inline-block
+              .star
+                display: inline-block
+                width: 11px
+                height: 11px
+                margin-right: 2.5px
+                line-height: 10px;
+          .active
+            layout(row)
+            .active-item
+              display: inline-block
+              width: 40px
+              height: 15px
+              box-sizing: border-box
+              text-align: center
+              font-size: $font-size-small-s
+              color: $color-text-black-s
+              border: .5px solid $border-color-gray
+              border-radius: 2px
+              margin-right: 8px
+              font-family: PingFangSC-Light;
+              letter-spacing: 0;
+              padding: 1.5px 0
+        > .distance
+          position: absolute
+          right: 12.5px
+          top: 0
+          bottom: 0
+          font-size: $font-size-small
+          color: $color-text-9b
+          line-height: 13.8vh
+          font-family: PingFangSC-Light;
+          letter-spacing: 0;
+</style>

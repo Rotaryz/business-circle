@@ -1,0 +1,171 @@
+<template>
+  <view class="good-contents">
+    <view class="content-item" wx:for="{{contentList}}" wx:key="{{index}}">
+      <view class="item-box">
+        <navigator url="/pages/content-detail/content-detail?id={{item.id}}&currentMerchant={{item.merchant_id}}" hover-class="none">
+          <view class="item-container">
+            <view class="item-left">
+              <view class="left-title">{{item.title}}</view>
+              <view>
+                <view class="left-name">
+                  <image class="left-icon" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/icon-area_shop@2x.png'}}"></image>
+                  <view class="name-txt">{{item.shop_name}}</view>
+                </view>
+                <view class="left-down">
+                  <view class="down-item">
+                    <text class="down-title">收藏</text>
+                    <text>{{item.favorite_count}}</text>
+                  </view>
+                  <view class="down-item">
+                    <text class="down-title">分享</text>
+                    <text>{{item.share_count}}</text>
+                  </view>
+                </view>
+              </view>
+            </view>
+            <view class="item-right">
+              <image src="{{item.image_url}}" class="item-img" mode="aspectFill"></image>
+            </view>
+          </view>
+        </navigator>
+      </view>
+    </view>
+    <underline></underline>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import {ERR_OK} from 'api/base'
+  import URIS from 'common/js/config'
+  import Circles from 'api/circles'
+  import Underline from '@/base/underline-block/underline-block'
+
+  export default class GoodShops extends wepy.page {
+    mixins = [base]
+
+    config = {
+      navigationBarTitleText: '优质推荐',
+      navigationBarBackgroundColor: '#fff',
+      navigationBarTextStyle: 'black',
+      backgroundColor: '#f9f9f9',
+      backgroundTextStyle: 'dark',
+      enablePullDownRefresh: true
+    }
+
+    data = {
+      imageUri: URIS.image,
+      contentList: []
+    }
+
+    async onLoad() {
+      await this.load()
+      this.$invoke('underline', 'show')
+      this.loaded()
+    }
+
+    async onPullDownRefresh() {
+      await this.load(false)
+      this.loaded()
+      wx.stopPullDownRefresh()
+    }
+
+    async load(loading = true) {
+      await this._getRecommend(loading)
+    }
+
+    // 优质推荐
+    async _getRecommend(loading = true) {
+      let resData = await Circles.highQuality(loading, 1, 20)
+      if (resData.error !== ERR_OK) {
+        return
+      }
+      let res = resData.data
+      this.contentList = res
+      this.$apply()
+    }
+
+    components = {
+      underline: Underline
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../common/stylus/variable"
+  @import "../../common/stylus/mixin"
+
+  .good-contents
+    width: 100%
+    .content-item
+      padding: 0 12px
+      height: 100%
+      display: flex
+      justify-content: space-between
+      overflow: hidden
+      background: $color-white
+      margin-bottom: 10px
+      .item-box
+        height: 0
+        width: 100%
+        padding-bottom: 33.19%
+        position: relative
+        .item-container
+          position: absolute
+          left: 0
+          top: 0
+          width: 100%
+          height: 100%
+          box-sizing: border-box
+          padding: 15px 0
+          display: flex
+          justify-content: space-between
+          .item-left
+            flex: 1
+            padding-right: 15px
+            display: flex
+            flex-direction: column
+            justify-content: space-between
+            .left-title
+              font-family: PingFangSC-Medium
+              font-size: $font-size-medium
+              color: $color-text
+              letter-spacing: 0.42px
+              line-height: 21px
+            .left-name
+              display: flex
+              height: 12px
+              align-items: center
+              margin-bottom: 6px
+              .left-icon
+                width: 11px
+                height: 10px
+                margin-right: 4px
+              .name-txt
+                font-family: PingFangSC-Light
+                font-size: $font-size-small
+            .left-down
+              display: flex
+              .down-item
+                padding: 3.5px 5px
+                font-family: PingFangSC-Light
+                font-size: $font-size-small-s
+                color: $color-orange
+                background: rgba(255,78,0,0.1)
+                border-radius: 2px
+                margin-right: 8px
+                .down-title
+                  margin-right: 4px
+          .item-right
+            width: 32.4vw
+            height: 100%
+            border: 0.5px solid $color-col-line
+            border-radius: 2px
+            overflow: hidden
+            .item-img
+              width: 100%
+              height: 100%
+
+</style>

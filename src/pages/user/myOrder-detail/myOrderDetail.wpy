@@ -1,0 +1,1200 @@
+<template>
+  <view class="orderDetail">
+    <view class="orderDetail-head border-bottom-1px border-top-1px" wx:if="{{promotionType !== 3}}">
+      <view class="orderDetail-head-detailBox border-bottom-1px" @tap="couponDetail">
+        <view class="orderDetail-head-left">
+          <view class="orderDetail-head-img-box">
+            <image wx:if="{{imageUrlHead}}" src="{{promotionType == 5 ? (imageUrlHead + '/defaults/c-image/mine/pic-moren2@2x.png') : (promotionType == 1 || 4 ? orderMsg.promotion.promotion_images[0].image.url : orderMsg.promotion.gift_bag_images[0].image.url)}}" mode="widthFix" class="orderDetail-head-img"></image>
+          </view>
+          <view class="orderDetail-head-msg" wx:if="{{promotionType !== 4 && promotionType !== 7}}">
+            <view class="orderDetail-head-msg-top">
+              <view class="orderDetail-head-msg-title">{{orderMsg.title}}</view>
+              <view class="orderDetail-head-msg-content" wx:if="{{promotionType !== 5}}">{{orderMsg.promotion.subhead}}</view>
+              <view class="orderDetail-head-msg-content" wx:if="{{promotionType === 5}}">{{orderMsg.alliance_merchant_count}}店通用</view>
+            </view>
+            <view class="orderDetail-head-msg-pay">¥<text class="orderDetail-head-msg-payMoney">{{orderMsg.price}}</text></view>
+          </view>
+          <view class="orderDetail-head-msg" wx:if="{{promotionType === 4}}">
+            <view class="orderDetail-head-msg-top">
+              <view class="orderDetail-head-msg-title">{{orderMsg.title}}</view>
+              <view class="item-money">
+                <text class="red-small-txt">团购价:</text>
+                <text class="red-small-money">¥</text>
+                <text class="red-big-money">{{orderMsg.group_single_price}}</text>
+                <text class="gray-small-money">原价: ¥</text>
+                <text class="gray-big-money">{{orderMsg.price}}</text>
+              </view>
+            </view>
+            <view class="orderDetail-head-msg-down">
+              <view class="item-count">{{orderMsg.group_number}}人团</view>
+            </view>
+          </view>
+          <view class="orderDetail-head-msg" wx:if="{{promotionType === 7}}">
+            <view class="orderDetail-head-msg-top">
+              <view class="orderDetail-head-msg-title">{{orderMsg.title}}</view>
+              <view class="item-money">
+                <text class="red-small-money">¥</text>
+                <text class="red-big-money">{{orderMsg.total}}</text>
+                <text class="gray-small-money">原价: ¥{{orderMsg.promotion.platform_price}}</text>
+                <!--<text class="gray-big-money"></text>-->
+              </view>
+            </view>
+            <view class="orderDetail-head-msg-down">
+              <view class="item-count">仅剩{{orderMsg.activity_stock}}件</view>
+            </view>
+          </view>
+        </view>
+
+        <view class="orderDetail-head-detailBtn" wx:if="{{promotionType !== 5}}">
+          <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-my_Rectangle.png'}}" class="orderDetail-head-detailBtnImg"></image>
+        </view>
+      </view>
+      <view class="orderDetail-head-status">
+        <view class="orderDetail-head-statusTxt">{{statusTxt[orderStatus]}}</view>
+        <view class="orderDetail-head-statusBtn" @tap="followWork({{orderMsg.status}}, {{orderMsg.id}}, {{orderMsg.merchant_id}})" wx:if="{{orderStatus !== 1 && orderStatus !== 6 && orderStatus !== 9 && !(orderStatus === 5 && (promotionType === 5 || promotionType === 7))}}">{{promotionType === 4 ? groupBtnTxt[orderStatus] : btnTxt[orderStatus]}}</view>
+        <view class="orderDetail-head-statusBtn" @tap="followWork({{orderMsg.status}}, {{orderMsg.id}}, {{orderMsg.merchant_id}})" wx:if="{{orderStatus === 1 && (orderMsg.can_refund || promotionType === 4)}}">{{promotionType === 4 ? '拼团详情' : '申请退款'}}</view>
+      </view>
+    </view>
+
+    <view class="paySuccess-box border-bottom-1px border-top-1px" wx:if="{{promotionType === 3}}">
+      <image class="pay-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-payok@2x.png'}}"></image>
+      <view class="pay-txt">支付成功</view>
+    </view>
+
+    <view class="group-buy-detail border-bottom-1px border-top-1px" wx:if="{{promotionType === 4 && orderStatus !== 0 && orderStatus !== 6}}">
+      <view class="group-detail-head">
+        <view class="group-avatar-box">
+          <image class="avatar-img" src="{{orderMsg.group_user_img}}" mode="aspectFill"></image>
+        </view>
+        <view class="group-msg">
+          <view class="group-title">{{groupStatusTxt[orderMsg.group_status]}}</view>
+          <view class="group-msg-time"><text class="group-msg-first">剩余时间：</text><text class="group-red-time {{orderMsg.group_status > 2 || timeEnd ? 'time-down' : ''}}">{{orderMsg.group_status > 2 ? '00:00:00' : groupEndTime}}</text></view>
+        </view>
+      </view>
+      <view class="group-detail-progress">
+        <view class="group-detail-line"></view>
+        <view wx:for="{{groupStatus}}" wx:key="{{index}}" class="group-status-box">
+          <view class="group-status-txt {{item.status == orderMsg.group_status ? 'active' : ''}}">{{item.txt}}</view>
+          <view class="group-status-dot" wx:if="{{item.status != orderMsg.group_status}}"></view>
+          <image class="group-status-img" wx:if="{{imageUrlHead && item.status == orderMsg.group_status}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + item.icon}}"></image>
+        </view>
+      </view>
+      <!--<navigator url="{{'/pages/group-detail/group-detail?from=order&id=' + orderMsg.group_id}}" hover-class="none" wx:if="{{orderMsg.group_status * 1 === 1 || orderMsg.group_status * 1 === 2}}">-->
+      <!--<view class="group-btn {{industry}}-bg">邀请好友拼团</view>-->
+      <!--</navigator>-->
+      <!--<navigator url="{{'/pages/coupon-use/couponUse?id=' + orderMsg.id + '&type=order'}}" hover-class="none" wx:if="{{orderMsg.group_status * 1 === 3 || orderMsg.group_status * 1 === 4}}">-->
+      <!--<view class="group-btn {{industry}}-bg">立即使用</view>-->
+      <!--</navigator>-->
+    </view>
+
+    <view class="qrcode-container border-top-1px" wx:if="{{promotionType === 5 && orderStatus !== 0 && orderStatus !== 6 && orderStatus !== 4}}">
+      <!--<view class="qrcode-txt-li">有效期请在我的优惠券中查看</view>-->
+      <view class="qrcode-list-box border-top-1px">
+        <view class="qrcode-title-li border-bottom-1px">
+          <view class="qrcode-title">商品兑换券</view>
+          <view class="qrcode-use-btn" wx:if="{{exChangeCanUse}}" @tap="toUse('alliance_goods')">进店使用</view>
+        </view>
+        <view class="qrcode-li border-bottom-1px" wx:for="{{exChangeArr}}" wx:key="{{index}}" wx:if="{{exChangeShow ? true : index < 3}}">
+          <view class="qrcode-left">
+            <image class="qrcode-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + (item.is_used || item.is_expires ? 'icon-coupon_use@2x.png' : 'icon-coupon_unuse@2x.png')}}"></image>
+            <view class="qrcode-num {{item.is_used || item.is_expires ? 'dis' : ''}}"><text class="num-title">券{{index + 1}}:</text>{{item.beautyCode}}</view>
+          </view>
+          <view class="qrcode-right {{item.is_used || item.is_expires ? 'dis' : ''}}">{{item.is_used ? '已使用' : item.is_expires ? '已过期' : '未使用'}}</view>
+        </view>
+      </view>
+      <view class="qrcode-arrow border-bottom-1px" @tap="checkQrcodeShow('exChangeShow')" wx:if="{{exChangeArr.length > 3}}">
+        <image class="qrcode-arrow-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + (exChangeShow ? 'icon-deploy@2x.png' : 'icon-packup@2x.png')}}"></image>
+      </view>
+      <view class="qrcode-list-box">
+        <view class="qrcode-title-li border-bottom-1px">
+          <view class="qrcode-title">代金券</view>
+          <view class="qrcode-use-btn" wx:if="{{cashCanUse}}" @tap="toUse('alliance_cash_10')">进店使用</view>
+        </view>
+        <view class="qrcode-li border-bottom-1px" wx:for="{{cashArr}}" wx:key="{{index}}" wx:if="{{cashShow ? true : index < 3}}">
+          <view class="qrcode-left">
+            <image class="qrcode-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + (item.is_used || item.is_expires ? 'icon-coupon_use@2x.png' : 'icon-coupon_unuse@2x.png')}}"></image>
+            <view class="qrcode-num {{item.is_used || item.is_expires ? 'dis' : ''}}"><text class="num-title">券{{index + 1}}:</text>{{item.beautyCode}}</view>
+          </view>
+          <view class="qrcode-right {{item.is_used || item.is_expires ? 'dis' : ''}}">{{item.is_used ? '已使用' : item.is_expires ? '已过期' : '未使用'}}</view>
+        </view>
+      </view>
+      <view class="qrcode-arrow border-bottom-1px" @tap="checkQrcodeShow('cashShow')" wx:if="{{cashArr.length > 3}}">
+        <image class="qrcode-arrow-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + (cashShow ? 'icon-deploy@2x.png' : 'icon-packup@2x.png')}}"></image>
+      </view>
+      <view class="qrcode-list-box">
+        <view class="qrcode-title-li border-bottom-1px">
+          <view class="qrcode-title">优惠券</view>
+          <view class="qrcode-use-btn" wx:if="{{couponCanUse}}" @tap="toUse('alliance_merchant_coupon')">进店使用</view>
+        </view>
+        <view class="qrcode-li border-bottom-1px" wx:for="{{couponArr}}" wx:key="{{index}}" wx:if="{{couponShow ? true : index < 3}}">
+          <view class="qrcode-left">
+            <image class="qrcode-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + (item.is_used || item.is_expires ? 'icon-coupon_use@2x.png' : 'icon-coupon_unuse@2x.png')}}"></image>
+            <view class="qrcode-num {{item.is_used || item.is_expires ? 'dis' : ''}}"><text class="num-title">券{{index + 1}}:</text>{{item.beautyCode}}</view>
+          </view>
+          <view class="qrcode-right {{item.is_used || item.is_expires ? 'dis' : ''}}">{{item.is_used ? '已使用' : item.is_expires ? '已过期' : '未使用'}}</view>
+        </view>
+      </view>
+      <view class="qrcode-arrow border-bottom-1px" @tap="checkQrcodeShow('couponShow')" wx:if="{{couponArr.length > 3}}">
+        <image class="qrcode-arrow-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + (couponShow ? 'icon-deploy@2x.png' : 'icon-packup@2x.png')}}"></image>
+      </view>
+    </view>
+
+    <view class="qrcode-container border-top-1px" wx:if="{{(promotionType !== 3 && promotionType !== 4 && promotionType !== 5 && orderStatus !== 0 && orderStatus !== 6 && orderStatus !== 4) || (promotionType === 4 && (orderStatus === 1 || orderStatus === 2 || orderStatus === 5))}}">
+      <view class="qrcode-list-box border-top-1px">
+        <view class="qrcode-title-li border-bottom-1px">
+          <view class="qrcode-title">有效期至：{{orderMsg.promotion_valid_time}}</view>
+          <view class="qrcode-use-btn" wx:if="{{qrcodeCanUse && orderStatus === 1}}" @tap="toUse('default')">进店使用</view>
+        </view>
+        <view class="qrcode-li border-bottom-1px" wx:for="{{qrcodesArr}}" wx:key="{{index}}" wx:if="{{qrcodeShow ? true : index < 3}}">
+          <view class="qrcode-left">
+            <image class="qrcode-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + (item.is_used || item.is_expires ? 'icon-coupon_use@2x.png' : 'icon-coupon_unuse@2x.png')}}"></image>
+            <view class="qrcode-num {{item.is_used || item.is_expires ? 'dis' : ''}}"><text class="num-title">券{{index + 1}}:</text>{{item.beautyCode}}</view>
+          </view>
+          <view class="qrcode-right {{item.is_used || item.is_expires ? 'dis' : ''}}">{{item.is_used ? '已使用' : item.is_expires ? '已过期' : '未使用'}}</view>
+        </view>
+      </view>
+      <view class="qrcode-arrow border-bottom-1px" @tap="checkQrcodeShow('qrcodeShow')" wx:if="{{qrcodesArr.length > 3}}">
+        <image class="qrcode-arrow-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/' + (qrcodeShow ? 'icon-deploy@2x.png' : 'icon-packup@2x.png')}}"></image>
+      </view>
+    </view>
+
+    <view class="orderDetail-merchant border-top-1px border-bottom-1px">
+      <!--<navigator target="miniProgram" path="{{'/pages/recommend/recommend?merchantId=' + orderMsg.merchant_id + '&scene=12005&businessCircleId=' + businessId}}" open-type="navigate" version="{{version}}" app-id="{{orderMsg.app_id}}" hover-class="none">-->
+        <view class="orderDetail-merchant-title border-bottom-1px" @tap="checkMerchant">
+          <text class="merchantTxt">商家信息</text>
+          <view class="icon-box">
+            <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-my_Rectangle.png'}}" class="orderDetail-merchant-icon"></image>
+          </view>
+        </view>
+        <view class="orderDetail-merchant-msgBox" @tap="checkMerchant">
+          <view class="orderDetail-merchant-logo-box">
+            <image src="{{orderMsg.merchant_data.logo_image}}" mode="aspectFill" class="orderDetail-merchant-logo"></image>
+          </view>
+          <view class="orderDetail-merchant-msg">
+            <view class="orderDetail-merchant-msgName">{{orderMsg.merchant_data.name}}</view>
+            <view class="orderDetail-merchant-msgWork">{{orderMsg.merchant_data.describe}}</view>
+          </view>
+        </view>
+      <!--</navigator>-->
+      <view class="orderDetail-merchant-detail border-top-1px">
+        <view class="orderDetail-merchant-detail-item border-right-1px" @tap="GPSbegin">
+          <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-navigation_1.png'}}" class="orderDetail-merchant-detailIcon"></image>
+          <text>开始导航</text>
+        </view>
+        <view class="orderDetail-merchant-detail-item" @tap="call({{orderMsg.merchant_data.mobile}})">
+          <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-call_1.png'}}" class="orderDetail-merchant-detailIcon"></image>
+          <text>打电话</text>
+        </view>
+      </view>
+    </view>
+
+    <!--<view class="group-order-msg border-bottom-1px border-top-1px" wx:if="{{orderMsg.promotion_type * 1 === 4}}">-->
+    <!--<view class="group-order-msg-item border-bottom-1px">-->
+    <!--<view class="group-order-title">商品金额</view>-->
+    <!--<view class="group-order-money">-->
+    <!--<view class="small-money">¥</view>-->
+    <!--<view class="big-money">{{goodsTotal}}</view>-->
+    <!--</view>-->
+    <!--</view>-->
+    <!--<view class="group-order-msg-item border-bottom-1px">-->
+    <!--<view class="group-order-title">团购金额</view>-->
+    <!--<view class="group-order-money">-->
+    <!--<view class="small-money">¥</view>-->
+    <!--<view class="big-money">{{groupTotal}}</view>-->
+    <!--</view>-->
+    <!--</view>-->
+    <!--<view class="group-order-msg-item">-->
+    <!--<view class="group-order-title">实付金额</view>-->
+    <!--<view class="group-order-money">-->
+    <!--<view class="small-money">¥</view>-->
+    <!--<view class="big-money">{{orderMsg.total}}</view>-->
+    <!--</view>-->
+    <!--</view>-->
+    <!--</view>-->
+
+    <view class="orderDetail-orderList border-bottom-1px border-top-1px">
+      <view class="orderDetail-orderList-title border-bottom-1px">订单信息</view>
+      <view class="orderDetail-orderList-msg">
+        <view class="orderDetail-orderList-msgItem">订单编号：{{orderMsg.order_sn}}<text class="copyBtn" @tap="copyOrderSn">复制</text></view>
+        <view class="orderDetail-orderList-msgItem">手机号码：{{orderMsg.customer_phone}}</view>
+        <view class="orderDetail-orderList-msgItem" wx:if="{{orderStatus === 0 || orderStatus === 6}}">下单时间：{{orderMsg.created_at}}</view>
+        <view class="orderDetail-orderList-msgItem" wx:if="{{orderStatus !== 0 && orderStatus !== 6}}">付款时间：{{orderMsg.pay_time}}</view>
+      </view>
+      <view class="orderDetail-orderList-pay" wx:if="{{promotionType !== 3 && promotionType !== 6}}">
+        <view class="orderDetail-orderList-msgItem">数量：{{orderMsg.count}}</view>
+        <view class="orderDetail-orderList-msgItem">总价：¥{{orderMsg.total}}</view>
+      </view>
+      <view class="orderDetail-orderList-pay" wx:if="{{promotionType === 3}}">
+        <view class="orderDetail-orderList-msgItem">消费：¥{{orderMsg.offline_total}}</view>
+        <view class="orderDetail-orderList-msgItem">优惠：{{orderMsg.discount_total ? '¥' + orderMsg.discount_total + '折扣券/满减券' : '无优惠'}}</view>
+        <view class="orderDetail-orderList-msgItem">实付：¥{{orderMsg.total}}</view>
+      </view>
+      <view class="orderDetail-orderList-pay" wx:if="{{promotionType === 6 && (orderStatus === 0 || orderStatus === 6)}}">
+        <view class="orderDetail-orderList-msgItem">数量：{{orderMsg.count}}</view>
+        <view class="orderDetail-orderList-msgItem">总价：¥{{orderMsg.total}}</view>
+      </view>
+      <view class="orderDetail-orderList-pay" wx:if="{{promotionType === 6 && orderStatus !== 0 && orderStatus !== 6}}">
+        <view class="orderDetail-orderList-msgItem">数量：{{orderMsg.count}}</view>
+        <view class="orderDetail-orderList-msgItem">总价：¥{{orderMsg.total_price}}</view>
+        <view class="orderDetail-orderList-msgItem">优惠：{{orderMsg.discount ? '¥' + orderMsg.discount + '抵用券' : '无优惠'}}</view>
+        <view class="orderDetail-orderList-msgItem">实付：¥{{orderMsg.total}}</view>
+      </view>
+    </view>
+
+    <view class="orderDetail-refundCover" wx:if="{{refundIng}}">
+      <view class="orderDetail-refundCover-Msg">
+        <view class="orderDetail-refundCover-Msghead border-bottom-1px">
+          <view class="orderDetail-refundCover-closeBtn" @tap="closeRefund">
+            <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-close_win.png'}}" class="orderDetail-refundCover-closeIcon"></image>
+          </view>
+          <text>选择退款原因</text>
+        </view>
+        <view class="orderDetail-refundCover-MsgList">
+          <radio-group bindchange="serviceValChange">
+            <view class="orderDetail-refundCover-MsgList-item border-bottom-1px" wx:for="{{refundCause}}" wx:key="{{index}}">
+              <label class="checkbox">
+                <radio value="{{item.value}}" checked="{{item.checked}}" hidden="{{true}}"/>{{item.txt}}
+                <image class="checkbox-Icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + (item.value===refundChecked?'/defaults/c-image/mine/icon-selected_green.png':'/defaults/c-image/mine/icon-selected_gray.png')}}"></image>
+              </label>
+            </view>
+          </radio-group>
+        </view>
+        <view class="orderDetail-refundCover-submit" @tap="refundSubmit">
+          <view class="orderDetail-refundCover-submitTxt">提交</view>
+        </view>
+      </view>
+    </view>
+
+    <Appraise></Appraise>
+    <Toast></Toast>
+    <popout></popout>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import getMyOrder from '@/api/myOrder'
+  import Appraise from '@/base/appraise/appraise'
+  import Toast from '@/base/toast/toast'
+  import URIS from 'common/js/config'
+  import {ERR_OK} from '@/api/base'
+  import Popout from '@/base/integral-popout/integral-popout'
+  import Shares from 'api/share'
+
+  const GROUPARR = [
+    {txt: '买家付款', icon: 'icon-order_rate01@2x.png', status: 1},
+    {txt: '拼团中', icon: 'icon-order_rate01@2x.png', status: 2},
+    {txt: '拼团成功', icon: 'icon-order_rate01@2x.png', status: 3},
+    {txt: '交易成功', icon: 'icon-order_rate02@2x.png', status: 4}
+  ]
+
+  const GROUPERRORARR = [
+    {txt: '买家付款', icon: 'icon-order_rate01@2x.png', status: 1},
+    {txt: '拼团中', icon: 'icon-order_rate01@2x.png', status: 2},
+    {txt: '拼团失败', icon: 'icon-order_rate01@2x.png', status: 5},
+    {txt: '退款成功', icon: 'icon-order_rate02@2x.png', status: 6}
+  ]
+
+  const GROUPSTATUSTXT = {
+    '1': '买家已付款，等待成团',
+    '2': '买家已付款，等待成团',
+    '3': '拼团成功',
+    '4': '交易成功',
+    '5': '拼团失败',
+    '6': '退款成功'
+  }
+
+  export default class MyCoupon extends wepy.page {
+    mixins = [base]
+
+    config = {
+      navigationBarTitleText: '订单详情'
+    }
+
+    components = {
+      Appraise,
+      Toast,
+      'popout': Popout
+    }
+
+    data = {
+      imageUrlHead: URIS.image,
+      btnTxt: ['付款', '申请退款', '评价', '查看详情', '查看详情', '再来一单', '', '查看详情', '查看详情', '', '拼团详情'],
+      groupBtnTxt: ['付款', '拼团详情', '评价', '拼团详情', '拼团详情', '再来一单', '', '拼团详情', '拼团详情', '', '拼团详情'],
+      statusTxt: ['待付款', '待使用', '待评价', '退款中', '已退款', '已完成', '已关闭', '退款中', '退款中', '已关闭', '待成团'],
+      orderStatus: '',
+      promotionType: '',
+      orderMsg: null,
+      refundIng: false,
+      refundCause: [
+        {value: '0', txt: '买多了/买错了'},
+        {value: '1', txt: '商家说可以现金/刷卡付款来享受折扣'},
+        {value: '2', txt: '计划有变没时间消费'},
+        {value: '3', txt: '预约不到'},
+        {value: '4', txt: '评价不好'},
+        {value: '5', txt: '后悔了不想要了'}],
+      refundChecked: '',
+      groupStatus: GROUPARR,
+      goodsTotal: 0.00,
+      groupTotal: 0.00,
+      groupStatusTxt: GROUPSTATUSTXT,
+      groupEndTime: '',
+      endTime: '',
+      timer: '',
+      timeEnd: false,
+      exChangeArr: [], // 兑换券核销码
+      exChangeShow: false, // 是否展开
+      exChangeCanUse: true, // 是否还有未使用的券
+      cashArr: [], // 代金券核销码
+      cashShow: false, // 是否展开
+      cashCanUse: true, // 是否还有未使用的券
+      couponArr: [], // 优惠券核销码
+      couponShow: false, // 是否展开
+      couponCanUse: true, // 是否还有未使用的券
+      qrcodesArr: [], // 普通券码
+      qrcodeShow: false, // 是否展开
+      qrcodeCanUse: true, // 是否还有未使用的券
+      version: URIS.jumpVersion
+    }
+
+    async onLoad(option) {
+      await this.load(option.id)
+      if (this.promotionType === 4) {
+        if (this.orderMsg.group_status > 2) {
+          this.timeEnd = true
+          clearInterval(this.timer)
+        } else if (this.orderMsg.group_status > 0 && this.orderMsg.group_status <= 2) {
+          this._groupTimePlay()
+        }
+      }
+      this.$apply()
+    }
+
+    async _getShareSoya(id) {
+      const resData = await Shares.getShareSoya('pay', id)
+      if (resData.error !== ERR_OK) {
+        this.loaded()
+        this.$invoke('toast', 'show', resData.message)
+        return
+      }
+      if (resData.error === ERR_OK && resData.code === 10002) {
+        this.loaded()
+        return
+      }
+      const res = resData.data
+      let total = res.score_value
+      if (this.showSoya) {
+        this.loaded()
+        this.$invoke('popout', 'openPoput', 'pay', total, '下单')
+      }
+      this.loaded()
+    }
+
+    async load(id) {
+      let res = await getMyOrder.getOrderDetail(id)
+      if (res.error !== ERR_OK) {
+        this.loaded()
+        return
+      }
+      this.orderMsg = res.data
+      this.orderStatus = res.data.status * 1
+      this.promotionType = res.data.promotion_type * 1
+      let resData = await getMyOrder.getOrderCouponList(id)
+      if (resData.error !== ERR_OK) {
+        this.loaded()
+        return
+      }
+      let qrcode = this._computed(resData.data)
+      if (res.data.promotion_type * 1 === 5) {
+        this.exChangeArr = this._filterType(qrcode, 'alliance_goods')
+        this.cashArr = this._filterType(qrcode, 'alliance_cash_10')
+        this.couponArr = this._filterType(qrcode, 'alliance_merchant_coupon')
+        this.exChangeCanUse = this._filterUsed(this.exChangeArr) // 检查是否显示进店使用
+        this.cashCanUse = this._filterUsed(this.cashArr) // 检查是否显示进店使用
+        this.couponCanUse = this._filterUsed(this.couponArr) // 检查是否显示进店使用
+      } else {
+        this.qrcodesArr = qrcode
+        this.qrcodeCanUse = this._filterUsed(this.qrcodesArr) // 检查是否显示进店使用
+      }
+      if (res.data.promotion_type * 1 === 4 && res.data.group_status * 1 >= 5) {
+        this.groupStatus = GROUPERRORARR
+      } else {
+        this.groupStatus = GROUPARR
+      }
+      if (res.data.promotion_type * 1 === 4) {
+        this.goodsTotal = (this.orderMsg.count * this.orderMsg.price).toFixed(2)
+        this.groupTotal = (this.orderMsg.count * this.orderMsg.group_single_price).toFixed(2)
+        this.endTime = this.orderMsg.group_end_timestamp
+      }
+      this.loaded()
+      this.$apply()
+    }
+
+    _groupTimePlay() {
+      clearInterval(this.timer)
+      let res = this._groupTimeCheckout(this.endTime)
+      this.groupEndTime = `${res.hour}:${res.minute}:${res.second}`
+      this.$apply()
+      this.timer = setInterval(() => {
+        let res = this._groupTimeCheckout(this.endTime)
+        this.groupEndTime = `${res.hour}:${res.minute}:${res.second}`
+        if (this.timeEnd) {
+          clearInterval(this.timer)
+        }
+        this.$apply()
+      }, 1000)
+    }
+
+    _groupTimeCheckout(time) {
+      let nowSecond = parseInt(Date.now() / 1000)
+      let differ = time * 1 - nowSecond
+      let day = Math.floor(differ / (60 * 60 * 24))
+      day = day >= 10 ? day : '0' + day
+      let hour = Math.floor(differ / (60 * 60)) - (day * 24)
+      hour = hour >= 10 ? hour : '0' + hour
+      let minute = Math.floor(differ / 60) - (day * 24 * 60) - (hour * 60)
+      minute = minute >= 10 ? minute : '0' + minute
+      let second = Math.floor(differ) - (day * 24 * 60 * 60) - (hour * 60 * 60) - (minute * 60)
+      second = second >= 10 ? second : '0' + second
+      let times
+      if (differ > 0) {
+        times = {
+          day,
+          hour,
+          minute,
+          second
+        }
+      } else {
+        times = {
+          day: '00',
+          hour: '00',
+          minute: '00',
+          second: '00'
+        }
+        this.timeEnd = true
+        this.$apply()
+      }
+      return times
+    }
+
+    _filterType(arr, type) {
+      return arr.filter((item) => {
+        return item.type === type
+      })
+    }
+
+    _filterUsed(arr) {
+      let resArr = arr.filter((item) => {
+        return !item.is_used
+      })
+      return resArr.length
+    }
+
+    _computed(arr) {
+      return arr.map((item) => {
+        item.beautyCode = item.code.replace(/(\d{4})/g, '$1 ')
+        return item
+      })
+    }
+
+    methods = {
+      async followWork(status, id, merchantId) {
+        let num = Number(status)
+        switch (num) {
+          case 0:
+            let data = {
+              order_id: id
+            }
+            let Json = await getMyOrder.paymentOrder(data)
+            this.loaded()
+            if (Json.error !== ERR_OK) {
+              this.$invoke('Toast', 'show', Json.message)
+              return
+            }
+            let res = Json.data
+            const {timestamp, nonceStr, signType, paySign} = res.pay_info
+            const pay = await wepy.requestPayment({
+              timeStamp: timestamp,
+              nonceStr,
+              package: res.pay_info.package,
+              signType,
+              paySign
+            })
+            if (pay.errMsg === 'requestPayment:ok') {
+              this.load(this.orderMsg.id)
+              wepy.setStorageSync('tips', {order: true})
+              this._getShareSoya(id)
+            }
+            break
+          case 1:
+            if (this.promotionType === 4) {
+              this.$navigate('/pages/group-detail/group-detail?from=order&id=' + this.orderMsg.group_id)
+            } else {
+              this.refundIng = true
+            }
+            break
+          case 2:
+            this.$invoke('Appraise', 'showCover')
+            this.$broadcast('sendCouponMsg', this.orderMsg.id)
+            break
+          case 3:
+          case 4:
+          case 7:
+          case 8:
+            if (this.promotionType === 4) {
+              this.$navigate('/pages/group-detail/group-detail?from=order&id=' + this.orderMsg.group_id)
+            } else {
+              this.$navigate('../refund/refund?id=' + id)
+            }
+            break
+          case 5:
+            if (this.promotionType === 5) {
+              return
+            }
+            let couponType
+            if (this.promotionType === 2) {
+              couponType = 2
+            } else {
+              couponType = 1
+            }
+            if (this.promotionType === 4) {
+              let groupId = this.orderMsg.group_activity_id
+              this.$navigate('/pages/coupon-detail/coupon-detail?s=group&id=' + this.orderMsg.promotion_id + '&type=' + couponType + '&currentMerchant=' + merchantId + '&groupId=' + groupId)
+            } else if (this.orderMsg.promotion_type * 1 === 7) {
+              // 砍价跳转
+              this.$navigate(`/pages/coupon-detail/coupon-detail?s=bargain&id=${this.orderMsg.promotion.id}&a=${this.orderMsg.activity_id}&m=${this.orderMsg.merchant_id}`)
+              console.log(this.orderMsg)
+            } else {
+              this.$navigate('/pages/coupon-detail/coupon-detail?id=' + this.orderMsg.promotion_id + '&type=' + couponType + '&currentMerchant=' + merchantId)
+            }
+            break
+          case 10:
+            this.$navigate('/pages/group-detail/group-detail?from=order&id=' + this.orderMsg.group_id)
+            break
+          case 6:
+          case 9:
+            break
+        }
+      },
+      call(tel) {
+        wx.makePhoneCall({
+          phoneNumber: tel
+        })
+      },
+      couponDetail() {
+        // 异业联盟暂不跳转详情
+        if (this.promotionType === 5) {
+          return
+        }
+        let id = this.orderMsg.promotion_id
+        let merchantId = this.orderMsg.merchant_id
+        let couponType
+        if (this.promotionType === 2) {
+          couponType = 2
+        } else {
+          couponType = 1
+        }
+        // 根据不同类型传不同的参数
+        if (this.promotionType === 4) {
+          let groupId = this.orderMsg.group_activity_id
+          this.$navigate('/pages/coupon-detail/coupon-detail?s=group&id=' + id + '&type=' + couponType + '&currentMerchant=' + merchantId + '&groupId=' + groupId)
+        } else if (this.orderMsg.promotion_type * 1 === 7) {
+          // 砍价跳转
+          this.$navigate(`/pages/coupon-detail/coupon-detail?s=bargain&id=${this.orderMsg.promotion.id}&a=${this.orderMsg.activity_id}&m=${this.orderMsg.merchant_id}`)
+        } else {
+          this.$navigate('/pages/coupon-detail/coupon-detail?id=' + id + '&type=' + couponType + '&currentMerchant=' + merchantId)
+        }
+      },
+      serviceValChange(e) {
+        this.refundChecked = e.detail.value
+        this.$apply()
+      },
+      async refundSubmit() {
+        if (!this.refundChecked) {
+          this.$invoke('Toast', 'show', '请选择退款原因')
+          return
+        }
+        let cause = this.refundCause[this.refundChecked].txt
+        const res = await getMyOrder.orderRebate(this.orderMsg.id, this.orderMsg.count, this.orderMsg.total, cause)
+        if (res.error === ERR_OK) {
+          this.refundIng = false
+          let id = this.orderMsg.id
+          let resNew = await getMyOrder.getOrderDetail(this.orderMsg.id)
+          this.orderMsg = resNew.data
+          this.loaded()
+          this.$apply()
+          this.$navigate('../refund/refund?id=' + id)
+        } else {
+          this.loaded()
+          this.$invoke('Toast', 'show', res.message)
+        }
+      },
+      closeRefund() {
+        this.refundIng = false
+        this.refundChecked = ''
+        this.$apply()
+      },
+      GPSbegin() {
+        let data = {
+          longitude: this.orderMsg.merchant_data.longitude,
+          latitude: this.orderMsg.merchant_data.latitude,
+          address: this.orderMsg.merchant_data.particular_address,
+          name: this.orderMsg.merchant_data.name
+        }
+        wepy.openLocation(data)
+      },
+      checkQrcodeShow(type) {
+        this[type] = !this[type]
+        this.$apply()
+      },
+      toUse(status) {
+        if (status === 'default') {
+          this.$navigate('/pages/coupon-use/couponUse?id=' + this.orderMsg.id + '&type=order')
+        } else {
+          this.$navigate('/pages/coupon-use/couponUse?id=' + this.orderMsg.id + '&type=alliance&status=' + status)
+        }
+      },
+      checkMerchant() {
+        let path = '/pages/recommend/recommend?merchantId=' + this.orderMsg.merchant_id + '&scene=12005&businessCircleId=' + this.businessId
+        wx.navigateToMiniProgram({
+          appId: this.orderMsg.app_id,
+          path: path,
+          extraData: {
+          },
+          envVersion: URIS.jumpVersion,
+          success(res) {
+            // 打开成功
+          }
+        })
+      },
+      async copyOrderSn() {
+        let orderSn = this.orderMsg.order_sn.toString()
+        await wepy.setClipboardData({data: orderSn})
+      }
+    }
+
+    events = {
+      'appraiseSuccess': () => {
+        this.load(this.orderMsg.id)
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../../common/stylus/variable"
+
+  .orderDetail
+    width: 100%
+    padding-bottom: 30px
+
+    .orderDetail-head
+      margin-top: 10px
+      background: $color-highlight-background
+      padding: 11.5px 0 0 11.5px
+
+      .orderDetail-head-detailBox
+        display: flex
+        justify-content: space-between
+        padding-bottom: 11.5px
+        height: 64.5px
+
+        .orderDetail-head-left
+          flex: 1
+          overflow: hidden
+          display: flex
+
+          .orderDetail-head-img-box
+            width: 120px
+            height: 64px
+            background: $color-master
+            border: 0.5px solid $color-row-line
+            border-radius: 2px
+            margin-right: 9.5px
+            overflow: hidden
+            .orderDetail-head-img
+              width: 120px
+
+          .orderDetail-head-msg
+            flex: 1
+            overflow: hidden
+            display: flex
+            flex-direction: column
+            justify-content: space-between
+
+            .orderDetail-head-msg-top
+              .orderDetail-head-msg-title
+                width: 100%
+                line-height: 20px
+                font-size: $font-size-medium
+                overflow: hidden
+                text-overflow: ellipsis
+                white-space: nowrap
+              .item-money
+                display: flex
+                align-items: flex-end
+                overflow: hidden
+                white-space: nowrap
+                .red-small-txt
+                  font-size: $font-size-small
+                  color: $color-pay
+                  margin: 1px
+                .red-small-money
+                  font-family: PingFangSC-Regular
+                  font-size: $font-size-small-s
+                  color: $color-pay
+                  margin: 0 1px 1px
+                .red-big-money
+                  font-family: PingFangSC-Semibold
+                  font-size: $font-size-large
+                  color: $color-pay
+                .gray-small-money
+                  margin-left: 15px
+                  font-size: $font-size-small-s
+                  color: $color-text-d
+                  margin-bottom: 1px
+                  margin-right: 1px
+                .gray-big-money
+                  font-size: $font-size-small
+                  color: $color-text-d
+                  margin-bottom: 1px
+
+              .orderDetail-head-msg-content
+                line-height: 17px
+                font-size: $font-size-small
+                margin-bottom: 4.5px
+
+            .orderDetail-head-msg-down
+              display: flex
+              .item-count
+                padding: 3.5px 5px
+                font-family: PingFangSC-Light
+                font-size: $font-size-small-s
+                color: $color-orange
+                background: rgba(255,78,0,0.1)
+                border-radius: 2px
+                margin-right: 8px
+            .orderDetail-head-msg-pay
+              color: $color-text-t
+              font-size: $font-size-small
+
+              .orderDetail-head-msg-payMoney
+                font-size: $font-size-large
+
+        .orderDetail-head-detailBtn
+          width: 30px
+          line-height: 64px
+          text-align: center
+
+          .orderDetail-head-detailBtnImg
+            width: 6px
+            height: 10px
+
+      .orderDetail-head-status
+        display: flex
+        justify-content: space-between
+        padding-right: 12px
+        align-items: center
+        height: 43px
+
+        .orderDetail-head-statusTxt
+          font-size: $font-size-small-s
+          color: $color-orange
+
+        .orderDetail-head-statusBtn
+          width: 58px
+          height: 24px
+          border-radius: 2px
+          line-height: 24px
+          text-align: center
+          font-size: $font-size-small
+          color: $color-white
+          background: $color-button
+
+    .paySuccess-box
+      width: 100%
+      height: 60px
+      display: flex
+      align-items: center
+      justify-content: center
+      background: $color-white
+      .pay-icon
+        width: 20px
+        height: 20px
+        margin-right: 5px
+      .pay-txt
+        font-family: PingFang-SC-Regular
+        font-size: $font-size-large
+    .group-buy-detail
+      margin-top: 10px
+      padding-bottom: 20px
+      width: 100%
+      background: $color-white
+      .group-detail-head
+        height: 54px
+        display: flex
+        align-items: center
+        padding-left: 12px
+        .group-avatar-box
+          width: 34px
+          height: 34px
+          border: 0.5px solid $color-col-line
+          box-sizing: border-box
+          overflow: hidden
+          border-radius: 50%
+          margin-right: 13px
+          .avatar-img
+            width: 100%
+            height: 100%
+        .group-msg
+          .group-title
+            font-family: PingFangSC-Light
+            font-size: $font-size-medium
+            color: #333333
+            margin-bottom: 5px
+          .group-msg-time
+            font-family: PingFangSC-Light
+            font-size: $font-size-small-s
+            color: $color-text-d
+            height: 12px
+            display: flex
+            align-items: center
+            .group-red-time
+              font-family: PingFangSC-Light
+              font-size: $font-size-small
+              color: $color-orange
+            .time-down
+              color: $color-text-d
+      .group-detail-progress
+        width: 74vw
+        margin: 0 auto
+        height: 33px
+        margin-top: 23px
+        position: relative
+        .group-detail-line
+          width: 100%
+          height: 1px
+          background: #CBCAD3
+          position: absolute
+          left: 0
+          bottom: -0.5px
+        .group-status-box
+          height: 30px
+          min-width: 48px
+          position: absolute
+          bottom: 0
+          .group-status-txt
+            font-size: $font-size-small
+            color: $color-text-ddd
+            text-align: center
+          .active.group-status-txt
+            color: $color-orange
+          .group-status-dot
+            width: 7px
+            height: 7px
+            border-radius: 50%
+            background: #CBCAD3
+            position: absolute
+            left: 50%
+            transform: translate(-50%, 0)
+            bottom: -3.5px
+          .group-status-img
+            width: 12px
+            height: 12px
+            position: absolute
+            left: 50%
+            transform: translate(-50%, 0)
+            bottom: -6px
+          &:nth-child(2)
+            left: 0
+            transform: translate(-50%, 0)
+          &:nth-child(3)
+            left: 33%
+            transform: translate(-50%, 0)
+          &:nth-child(4)
+            left: 66%
+            transform: translate(-50%, 0)
+          &:nth-child(5)
+            left: 100%
+            transform: translate(-50%, 0)
+      .group-btn
+        width: 85vw
+        height: 11.733vw
+        text-align: center
+        line-height: 11.733vw
+        background: $color-orange
+        color: $color-white
+        margin: 30px auto 0
+        border-radius: 2px
+        font-family: PingFangSC-Regular
+        font-size: $font-size-medium
+    .qrcode-container
+      margin-top: 10px
+      background: $color-white
+      .qrcode-txt-li
+        height: 44px
+        line-height: 44px
+        font-family: PingFang-SC-Regular
+        font-size: $font-size-medium
+        padding-left: 12px
+      .qrcode-list-box
+        padding-left: 12px
+        .qrcode-title-li
+          padding-right: 12px
+          height: 44px
+          display: flex
+          justify-content: space-between
+          align-items: center
+          .qrcode-title
+            flex: 1
+            overflow: hidden
+            height: 44px
+            line-height: 44px
+            font-family: PingFang-SC-Regular
+            font-size: $font-size-medium
+          .qrcode-use-btn
+            background: $color-main
+            width: 58px
+            height: 24px
+            border-radius: 2px
+            line-height: 24px
+            text-align: center
+            font-size: $font-size-small
+            color: $color-white
+        .qrcode-li
+          padding-right: 12px
+          display: flex
+          height: 44px
+          align-items: center
+          justify-content: space-between
+          .qrcode-left
+            display: flex
+            height: 44px
+            align-items: center
+            .qrcode-icon
+              width: 14px
+              height: 11.5px
+              margin-right: 5px
+            .qrcode-num
+              height: 44px
+              line-height: 44px
+              font-family: PingFang-SC-Medium
+              font-size: $font-size-medium
+              .num-title
+                width: 36px
+                font-family: PingFang-SC-Regular
+                display: inline-block
+                line-height: 44px
+            .dis.qrcode-num
+              color: $color-text-ddd
+          .qrcode-right
+            font-family: PingFangSC-Light
+            font-size: $font-size-small
+          .dis.qrcode-right
+            color: $color-text-ddd
+      .qrcode-arrow
+        height: 40px
+        display: flex
+        align-items: center
+        justify-content: center
+        .qrcode-arrow-icon
+          width: 12px
+          height: 7px
+    .orderDetail-merchant
+      background: $color-highlight-background
+      margin-top: 10px
+
+      .orderDetail-merchant-title
+        line-height: 38.5px
+        margin-left: 12px
+        font-size: $font-size-medium
+        color: $color-text-d
+        display: flex
+        justify-content: space-between
+        align-items: center
+        position: relative
+        .orderDetail-merchant-icon
+          width: 6px
+          height: 10px
+          position: absolute
+          right: 12px
+          top: 50%
+          transform: translate(0, -50%)
+
+      .orderDetail-merchant-msgBox
+        display: flex
+        padding: 9px 0 9px 12px
+        .orderDetail-merchant-logo-box
+          border: 0.5px solid $color-col-line
+          width: 65px
+          height: 65px
+          border-radius: 2px
+          margin-right: 8px
+          background: $color-master-gray
+          overflow: hidden
+
+          .orderDetail-merchant-logo
+            width: 65px
+            height: 65px
+
+        .orderDetail-merchant-msgName
+          font-size: $font-size-medium-x
+          letter-spacing: 0.48px
+          line-height: 22.5px
+          font-family: PingFangSC-Regular
+
+        .orderDetail-merchant-msgWork
+          font-size: $font-size-small-s
+          letter-spacing: 0.3px
+          line-height: 14px
+          margin-top: 3px
+
+      .orderDetail-merchant-detail
+        display: flex
+
+        .orderDetail-merchant-detail-item
+          flex: 1
+          display: flex
+          height: 39.5px
+          align-items: center
+          justify-content: center
+
+          .orderDetail-merchant-detailIcon
+            width: 10px
+            height: 10px
+            margin-right: 2.5px
+
+          text
+            font-size: $font-size-small-s
+            line-height: 16px
+
+    .group-order-msg
+      margin-top: 10px
+      background: $color-white
+      padding-left: 12px
+      .group-order-msg-item
+        display: flex
+        height: 40px
+        align-items: center
+        justify-content: space-between
+        &:last-child
+          border-bottom: 0 none
+        .group-order-title
+          font-size: $font-size-medium
+        .group-order-money
+          display: flex
+          align-items: flex-end
+          margin-right: 12px
+          .small-money
+            font-size: $font-size-small-s
+          .big-money
+            font-family: PingFangSC-Regular
+            font-size: $font-size-medium
+        .group-order-txt
+          font-size: $font-size-small
+          color: #A1A1A1
+          margin-right: 12px
+    .orderDetail-orderList
+      margin-top: 10px
+      padding-left: 12px
+      background: $color-highlight-background
+      .orderDetail-orderList-msg
+        padding: 8.5px 0
+
+      .orderDetail-orderList-title
+        line-height: 38.5px
+        font-size: $font-size-medium
+        color: $color-text-d
+
+      .orderDetail-orderList-msgItem
+        font-size: $font-size-small
+        line-height: 24px
+        .copyBtn
+          display: inline-block
+          width: 46px
+          height: 20px
+          box-sizing: border-box
+          border: 0.5px solid $color-text-ddd
+          border-radius: 2px
+          text-align: center
+          line-height: 20px
+          font-size: $font-size-small
+          margin-left: 15px
+
+      .orderDetail-orderList-pay
+        padding: 8.5px 0
+        border-top: 0.5px dashed $color-row-line
+
+    .orderDetail-refundCover
+      position: fixed
+      z-index: 1000
+      left: 0
+      top: 0
+      height: 100vh
+      width: 100vw
+      background: $color-mask-bgc
+
+      .orderDetail-refundCover-Msg
+        position: fixed
+        bottom: 0
+        left: 0
+        right: 0
+        background: $color-highlight-background
+
+        .orderDetail-refundCover-Msghead
+          padding: 0 10px
+          text-align: center
+          line-height: 40px
+          position: relative
+          font-size: $font-size-medium
+
+          .orderDetail-refundCover-closeBtn
+            position: absolute
+            width: 40px
+            height: 40px
+            left: 0
+
+            .orderDetail-refundCover-closeIcon
+              position: absolute
+              width: 10px
+              height: 10px
+              left: 10px
+              margin-top: 15px
+
+        .orderDetail-refundCover-MsgList
+          padding-left: 10px
+          margin-bottom: 20px
+
+          .orderDetail-refundCover-MsgList-item
+            line-height: 36px
+            font-size: $font-size-small
+
+            .checkbox
+              display: block
+              width: 100%
+              position: relative
+
+              .checkbox-Icon
+                width: 16px
+                height: 16px
+                position: absolute
+                right: 10px
+                top: 10px
+
+        .orderDetail-refundCover-submit
+          margin: 0 12px
+          border: 1px solid $color-row-line
+          padding-top: 12%
+          position: relative
+          margin-bottom: 20px
+
+          .orderDetail-refundCover-submitTxt
+            position: absolute
+            left: 50%
+            top: 50%
+            transform: translate(-50%, -50%)
+            font-size: $font-size-medium
+
+</style>

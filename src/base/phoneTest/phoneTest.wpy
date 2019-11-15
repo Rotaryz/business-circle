@@ -1,0 +1,325 @@
+<template>
+  <view class="phoneTest-phoneCover" wx:if="{{phoneTestCover}}">
+    <view class="phoneTest-phoneWindow">
+
+      <view class="phoneTest-phoneWindow-head">
+        <text class="phoneTest-phoneWindow-headTxt">绑定手机号</text>
+        <view class="phoneTest-closeBtn" @tap="closeCover">
+          <image class="phoneTest-closeBtn-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-close_win.png'}}"></image>
+        </view>
+      </view>
+
+      <text class="phoneTest-titleTxt">绑定手机号,获取更多红包、优惠券等信息</text>
+
+      <view class="phoneTest-list">
+        <view class="phoneTest-list-item">
+          <image class="phoneTest-list-item-image" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-m_phone@2x.png'}}"></image>
+          <input type="number" placeholder="输入手机号" placeholder-class="phoneTest-list-item-placeh"
+                 class="phoneTest-list-item-input {{phoneNumError?'':'error'}}" maxlength="11" bindinput="phoneNumIn"/>
+        </view>
+
+        <view class="phoneTest-list-item">
+          <image class="phoneTest-list-item-image" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-m_code@2x.png'}}"></image>
+          <view class="phoneTest-list-codeBox">
+            <input type="text" placeholder="验证码" placeholder-class="phoneTest-list-item-placeh"
+                   class="phoneTest-list-item-input" maxlength="6" bindinput="phoneCodeIn"/>
+            <view class="{{phoneCodeDisabled?'phoneTest-list-code phoneTest-list-codeRed':'phoneTest-list-code'}}"
+                  @tap="getPhoneCode">{{phoneCodeTime}}
+            </view>
+          </view>
+        </view>
+      </view>
+
+      <view class="{{submitDisabled?'phoneTest-submit':'phoneTest-submit phoneTest-submit-disabled'}}"
+            @tap="submitMsg">确定
+      </view>
+    </view>
+
+    <Toast></Toast>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import tips from '@/common/js/tips'
+  import users from 'common/mixins/users'
+  import base from 'common/mixins/base'
+  import user from 'api/user'
+  import Toast from '@/base/toast/toast'
+  import URIS from 'common/js/config'
+  import {ERR_OK} from '@/api/base'
+  import {TELREG} from '@/common/js/regs'
+
+  export default class PhoneTest extends wepy.component {
+    mixins = [users, base]
+    data = {
+      imageUrlHead: URIS.image,
+      phoneCodeTime: '获取验证码',
+      phoneCodeDisabled: false,
+      submitDisabled: true,
+      phoneTestCover: false,
+      phoneNum: 0,
+      phoneCode: 0,
+      modify: false,
+      type: ''
+    }
+
+    components = {
+      Toast
+    }
+
+    onLoad() {
+    }
+
+    async _getPhoneCode(data) {
+      return await user.getPhoneCode(data)
+    }
+
+    async _bindPhone(data) {
+      return await user.bindPhone(data)
+    }
+
+    async _changePhone(data) {
+      return await user.changePhone(data)
+    }
+
+    methods = {
+      changeIndustry() {
+        this.industry = wepy.getStorageSync('shop').industry
+      },
+      bindPhone(type) {
+        if (typeof (type) === 'string') {
+          this.modify = true
+        } else {
+          this.modify = false
+        }
+        this.phoneTestCover = true
+        this.$apply()
+      },
+      closeCover() {
+        this.phoneNum = 0
+        this.phoneCode = 0
+        this.submitDisabled = true
+        this.phoneTestCover = false
+      },
+      phoneNumIn(e) {
+        this.phoneNum = e.detail.value
+        var reg = TELREG
+        if (reg.test(this.phoneNum) && this.phoneCode.length === 6) {
+          this.submitDisabled = false
+        } else {
+          this.submitDisabled = true
+        }
+      },
+      phoneCodeIn(e) {
+        this.phoneCode = e.detail.value
+        var reg = TELREG
+        if (reg.test(this.phoneNum) && this.phoneCode.length === 6) {
+          this.submitDisabled = false
+        } else {
+          this.submitDisabled = true
+        }
+      },
+      async getPhoneCode() {
+        var reg = TELREG
+        var self = this
+        if (reg.test(self.phoneNum) && !self.phoneCodeDisabled) {
+          self.phoneCodeTime = '发送中···'
+          let data = {
+            mobile: self.phoneNum
+          }
+          let phoneCode = await this._getPhoneCode(data)
+          this.loaded()
+          if (phoneCode.error !== ERR_OK) {
+            this.$invoke('Toast', 'show', phoneCode.message)
+            this.phoneCodeTime = '获取验证码'
+            this.$apply()
+            return
+          }
+          this.phoneCodeDisabled = true
+          let time = 60
+          this.phoneCodeTime = time + 's'
+          let timer = setInterval(function () {
+            time--
+            self.phoneCodeTime = time + 's'
+            self.$apply()
+            if (time <= 0) {
+              self.phoneCodeTime = '获取验证码'
+              self.phoneCodeDisabled = false
+              self.$apply()
+              clearInterval(timer)
+            }
+          }, 1000)
+        } else if (!reg.test(self.phoneNum)) {
+          this.$invoke('Toast', 'show', '请输入正确手机号码')
+        } else if (self.phoneCodeDisabled) {
+          this.$invoke('Toast', 'show', '验证码已发送')
+        }
+      },
+      async submitMsg() {
+        let reg = TELREG
+        let self = this
+        if (this.phoneNum && reg.test(self.phoneNum) && this.phoneCode && this.phoneCode.length === 6) {
+          let tipsMsg, resData
+          let data = {
+            mobile: self.phoneNum,
+            code: self.phoneCode
+          }
+          if (this.modify) {
+            tipsMsg = '手机修改'
+            resData = await this._changePhone(data)
+          } else {
+            tipsMsg = '手机绑定'
+            resData = await this._bindPhone(data)
+          }
+          this.loaded()
+          if (resData.error === ERR_OK) {
+            self.phoneTestCover = false
+            self.$apply()
+            tips.success(tipsMsg + '成功')
+            setTimeout(() => {
+              self.$emit('isPhoneOk', self.type)
+            }, 500)
+          } else {
+            this.$invoke('Toast', 'show', resData.message)
+          }
+        }
+      }
+    }
+
+    show(type = '') {
+      this.phoneTestCover = true
+      this.type = type
+      this.$apply()
+    }
+
+    computed = {
+      phoneNumError() {
+        let reg = TELREG
+        if (this.phoneNum.length === 11) {
+          return reg.test(this.phoneNum)
+        } else {
+          return true
+        }
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../common/stylus/variable"
+
+  .phoneTest-phoneCover
+    position: fixed
+    z-index: 1000
+    left: 0
+    top: 0
+    height: 100vh
+    width: 100vw
+    background: $color-mask-bgc
+
+  .phoneTest-phoneWindow
+    position: fixed
+    height: 246px
+    width: 240px
+    margin: auto
+    left: 0
+    top: 0
+    right: 0
+    bottom: 0
+    background: #fff
+    border-radius: 4px
+    padding: 20px
+
+    .phoneTest-phoneWindow-head
+      height: 20px
+      display: flex
+      position: relative
+
+      .phoneTest-phoneWindow-headTxt
+        font-size: $font-size-medium-x
+        color: $color-text
+        line-height: 20px
+
+      .phoneTest-closeBtn
+        width: 30px
+        height: 30px
+        position: absolute
+        right: -10px
+        top: -10px
+
+        .phoneTest-closeBtn-icon
+          width: 10px
+          height: 10px
+          margin: 10px
+
+    .phoneTest-titleTxt
+      font-size: $font-size-small-s
+      color: #9B9B9B
+
+    .phoneTest-list
+      padding-top: 10px
+      padding-left: 1.5px
+
+      .phoneTest-list-item
+        height: 30px
+        border-bottom: 1px solid #D6D6D6
+        display: flex
+        flex-direction: row
+        align-items: center
+        margin-top: 30px
+
+        .phoneTest-list-item-image
+          width: 17px
+          height: 17px
+          margin-right: 10px
+
+        .phoneTest-list-item-input
+          font-size: $font-size-medium
+
+        .phoneTest-list-item-input.error
+          color: $color-orange
+
+        .phoneTest-list-item-placeh
+          font-size: $font-size-medium
+          color: #9B9B9B
+
+        .phoneTest-list-codeBox
+          display: flex
+          justify-content: space-between
+          align-items: center
+          width: 221.5px
+
+          .phoneTest-list-item-input
+            width: 100px
+
+          .phoneTest-list-code
+            border-left: 1px solid #E6E6E6
+            height: 16.5px
+            width: 80px
+            text-align: center
+            padding-left: 5px
+            line-height: 16.5px
+            font-size: $font-size-medium
+            color: #C8C8C8
+            margin-left: 13px
+          .phoneTest-list-codeRed
+            color: $color-text-t
+
+    .phoneTest-submit
+      width: 240px
+      height: 40px
+      opacity: 0.3
+      background: #A19BB6
+      border-radius: 2px
+      text-align: center
+      line-height: 40px
+      font-size: $font-size-small
+      color: #fff
+      margin-top: 30px
+
+    .phoneTest-submit-disabled
+      opacity: 1
+
+</style>

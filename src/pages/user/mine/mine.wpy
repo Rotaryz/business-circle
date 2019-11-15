@@ -1,0 +1,497 @@
+<template>
+  <view class="mine">
+    <view class="mine-main">
+      <view class="mine-head" @tap="notestToPage('/pages/user/myCenter/myCenter')">
+        <view class="mine-head-avatarBox">
+          <image class="mine-head-avatar" src="{{userInfo.avatarUrl}}" mode="aspectFill" style="background-image: url({{imageUrlHead?imageUrlHead + '/defaults/c-image/mine/pic-default.png':''}}); background-size: 48px 48px"></image>
+          <view>
+            <view class="mine-head-nickName">{{userInfo.nickName}}</view>
+            <view class="mine-head-nickName-down">编辑个人资料 ></view>
+          </view>
+        </view>
+        <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-my_Rectangle.png'}}" class="mine-headIcon"></image>
+      </view>
+
+      <view class="mine-phoneTestBox" wx:if="{{isPhone===0}}">
+        <PhoneTestHint></PhoneTestHint>
+        <PhoneTest></PhoneTest>
+      </view>
+
+      <view class="mine-order">
+        <view class="mine-order-head" @tap="notestToPage('/pages/user/myOrder/myOrder')">
+          <view class="mine-order-head-left">
+            <text class="mine-order-headTxt">我的订单</text>
+          </view>
+          <view class="mine-order-head-right">
+            <view class="red-dot" wx:if="{{false}}"></view>
+            <view class="mine-order-head-right-txt">查看所有订单</view>
+            <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-my_Rectangle.png'}}" class="mine-order-headIcon"></image>
+          </view>
+        </view>
+        <view class="mine-order-menu">
+          <view class="mine-order-menuItem" wx:for="{{orderMenu}}" wx:key="{{item.text}}" @tap="notestToPage('/pages/user/myOrder/myOrder?idx={{item.type}}')">
+            <image src="{{item.imgUrl}}" class="mine-order-menuItem-image"></image>
+            <view class="mine-order-menuItem-txt">{{item.text}}</view>
+          </view>
+        </view>
+      </view>
+
+      <view class="mine-serve">
+        <view class="mine-serve-Item" wx:for="{{serveMenu}}" wx:key="{{item.text}}" @tap="notestToPage({{item.url}})">
+          <view class="mine-serve-Item-left">
+            <image src="{{item.imgUrl}}" class="mine-serve-menuItem-image"></image>
+            <view class="mine-serve-menuItem-txt">{{item.text}}</view>
+          </view>
+          <view class="mine-serve-Item-right">
+            <view class="red-dot" wx:if="{{false}}"></view>
+            <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-my_Rectangle.png'}}" class="mine-order-headIcon"></image>
+          </view>
+        </view>
+      </view>
+      <view class="mine-main-under border-top-1px">
+        <view class="mine-serve-Item"
+              @tap="notestToPage('/pages/user/address/address')">
+          <view class="mine-serve-Item-left">
+            <image wx:if="{{imageUrlHead}}"
+                   src="{{imageUrlHead + '/defaults/c-image/square/icon-m_ map@2x.png'}}"
+                   class="mine-serve-menuItem-image"></image>
+            <view class="mine-serve-menuItem-txt">场景地址</view>
+          </view>
+          <view class="mine-serve-Item-right">
+            <!--<view class="mine-serve-avatar-box">-->
+            <!--&lt;!&ndash;<view class="mine-serve-avatarBox-item" wx:for="{{historyShops}}"&ndash;&gt;-->
+            <!--&lt;!&ndash;wx:key="{{item}}">&ndash;&gt;-->
+            <!--&lt;!&ndash;<image class="mine-serve-avatarBox-img" src="{{item}}"></image>&ndash;&gt;-->
+            <!--&lt;!&ndash;</view>&ndash;&gt;-->
+            <!--</view>-->
+            <!--<view class="shop-count">{{shopCount? shopCount + '家' : ''}}</view>-->
+            <image wx:if="{{imageUrlHead}}"
+                   src="{{imageUrlHead + '/defaults/c-image/mine/icon-my_Rectangle.png'}}"
+                   class="mine-order-headIcon"></image>
+          </view>
+        </view>
+        <view class="mine-serve-Item" @tap="notestToPage('/pages/browse-shops/browse-shops')">
+          <view class="mine-serve-Item-left">
+            <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-shop@2x.png'}}" class="mine-serve-menuItem-image"></image>
+            <view class="mine-serve-menuItem-txt">我浏览过的店</view>
+          </view>
+          <view class="mine-serve-Item-right">
+            <view class="mine-serve-avatar-box">
+              <view class="mine-serve-avatarBox-item" wx:for="{{userImage}}" wx:key="{{index}}">
+                <image class="mine-serve-avatarBox-img" src="{{item}}"></image>
+              </view>
+            </view>
+            <view class="shop-count">{{userInfo.count}}家</view>
+            <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-my_Rectangle.png'}}" class="mine-order-headIcon"></image>
+          </view>
+        </view>
+      </view>
+    </view>
+
+    <view class="mine-logo">
+      <image class="mine-logo-image" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/pic-logo_zanbo@2x.png'}}"></image>
+      <view class="mine-logo-txt">赞播提供技术支持</view>
+    </view>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import users from 'common/mixins/users'
+  import base from 'common/mixins/base'
+  import PhoneTest from '@/base/phoneTest/phoneTest'
+  import PhoneTestHint from '@/base/phoneTestHint/phoneTestHint'
+  import URIS from 'common/js/config'
+  const SHOPLIST = [{
+    imgUrl: URIS.image + '/defaults/c-image/mine/icon-businessarea@2x.png',
+    text: '我的商圈'
+  }]
+  export default class Mine extends wepy.page {
+    mixins = [users, base]
+
+    config = {
+      navigationBarTitleText: '我的',
+      navigationBarBackgroundColor: '#fff',
+      navigationBarTextStyle: 'black',
+      backgroundColor: '#F9F9F9'
+    }
+
+    components = {
+      PhoneTest,
+      PhoneTestHint
+    }
+
+    data = {
+      shopList: SHOPLIST,
+      imageUrlHead: URIS.image,
+      userInfo: {
+        nickName: '加载中...',
+        avatarUrl: null
+      },
+      isPhone: 1,
+      orderMenu: [
+        {
+          imgUrl: URIS.image + '/defaults/c-image/mine/icon-m_ppay@2x.png',
+          text: '待付款',
+          type: 0
+        }, {
+          imgUrl: URIS.image + '/defaults/c-image/share/icon-group@2x.png',
+          text: '待成团',
+          type: 5
+        }, {
+          imgUrl: URIS.image + '/defaults/c-image/mine/icon-m_used@2x.png',
+          text: '待使用',
+          type: 1
+        }, {
+          imgUrl: URIS.image + '/defaults/c-image/mine/icon-m_evalua@2x.png',
+          text: '待评价',
+          type: 2
+        }, {
+          imgUrl: URIS.image + '/defaults/c-image/mine/icon-m_refund@2x.png',
+          text: '退款/售后',
+          type: 3
+        }
+      ],
+      serveMenu: [
+        {
+          imgUrl: URIS.image + '/defaults/c-image/mine/icon-coupon_my@2x.png',
+          text: '我的优惠券',
+          url: '/pages/user/myCoupon/myCoupon'
+        }, {
+          imgUrl: URIS.image + '/defaults/c-image/bargain/icon-bargain@2x.png',
+          text: '我的砍价',
+          url: '/pages/my-bargain/my-bargain'
+        }, {
+          imgUrl: URIS.image + '/defaults/c-image/share/icon-wallet@2x.png',
+          text: '我的钱包',
+          url: '/pages/user/redPacket/redPacket'
+        }, {
+          imgUrl: URIS.image + '/defaults/c-image/mine/icon-m_ dou@2x.png',
+          text: '我的播豆',
+          url: '/pages/user/myIntegral/myIntegral'
+        }, {
+          imgUrl: URIS.image + '/defaults/c-image/mine/icon-m_ collect32@2x.png',
+          text: '我的收藏',
+          url: '/pages/user/mySelect/mySelect'
+        }
+      ],
+      tips: null,
+      currentIdx: -1,
+      userImage: []
+    }
+
+    async onLoad() {
+
+    }
+
+    async onShow() {
+      this.tips = wx.getStorageSync('tips')
+      this.$apply()
+      this.load()
+    }
+
+    async load() {
+      await this._getUserInfo()
+      this.loaded()
+    }
+
+    async _getUserInfo(loading = true) {
+      let res = await this.$getUserInfo(loading)
+      this.loaded()
+      this.userInfo = res
+      this.userImage = res.image
+//      let customerId = wx.getStorageSync('customerId')
+//      if (customerId) {
+//        this.isPhone = 1
+//        return
+//      }
+      let mobile = wx.getStorageSync('mobile')
+      if (mobile) {
+        this.isPhone = 1
+        return
+      }
+      this.isPhone = 0
+      this.$apply()
+    }
+
+    methods = {
+      navToMsgPage(url) {
+        if (this.isPhone === 1) {
+          this.$navigate(url)
+        } else {
+          this.$invoke('PhoneTest', 'bindPhone')
+        }
+      },
+      notestToPage(url) {
+        this.$navigate(url)
+      }
+    }
+
+    events = {
+      'isPhoneOk': () => {
+        this._getUserInfo(false)
+        this.isPhone = 1
+        this.$apply()
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../../common/stylus/variable"
+
+  page
+    height: 100%
+    position: relative
+
+  .mine
+    height: 100%
+    background: $color-background
+    font-family: PingFangSC-Light
+
+    .red-dot
+      width: 5px
+      height: 5px
+      background: $color-orange
+      border-radius: 50%
+      margin-right: 10px
+
+    .mine-main
+      min-height: 87vh
+
+    .mine-cover
+      position: absolute
+      left: 0
+      top: 0
+      width: 100vw
+      height: 100vh
+
+    .mine-head
+      height: 95px
+      background: #fff
+      padding: 0 12px
+      display: flex
+      flex-direction: row
+      align-items: center
+      justify-content: space-between
+      margin-bottom: 10px
+      border-bottom: .5px solid $color-col-line
+
+      .mine-head-avatarBox
+        display: flex
+        flex-direction: row
+        align-items: center
+
+        .mine-head-avatar
+          height: 48px
+          width: 48px
+          border-radius: 50%
+          margin-right: 11px
+          border: 1px solid $color-col-line
+
+        .mine-head-nickName
+          font-family: PingFangSC-Medium
+          font-size: $font-size-medium-x
+
+        .mine-head-nickName-down
+          font-size: $font-size-small-s
+          color: $color-text-d
+          margin-top: 10px
+
+      .mine-headIcon
+        width: 6px
+        height: 10px
+
+    .mine-head-arc
+      width: 100%
+      height: 24 rpx
+      margin: 0
+      display: block
+      background: $color-highlight-background
+
+    .mine-phoneTestBox
+      height: 55px
+
+    .mine-order
+      border-bottom: .5px solid $color-col-line
+      border-top: .5px solid $color-col-line
+      background: $color-highlight-background
+      margin-bottom: 10px
+
+      .mine-order-head
+        height: 20px
+        border-bottom: .5px solid $color-col-line
+        padding: 10px 0
+        padding-right: 12px
+        margin-left: 12px
+        display: flex
+        flex-direction: row
+        align-items: center
+        justify-content: space-between
+
+        .mine-order-head-left
+          display: flex
+          align-items: center
+
+          .mine-order-headTxt
+            text-indent: 5px
+            font-size: $font-size-medium
+            color: $color-text-d
+            position: relative
+            &:before
+              position: absolute
+              left: 0
+              top: 0
+              width: 2px
+              height: 14px
+              content: ''
+              background: $color-theme
+
+          .red-block
+            width: 3px
+            height: 12px
+            background: $color-text-t
+            margin-right: 5px
+
+        .mine-order-head-right
+          display: flex
+          align-items: center
+
+          .mine-order-head-right-txt
+            font-size: $font-size-small
+            color: #9b9b9b
+            margin-right: 5px
+
+          .mine-order-headIcon
+            width: 6px
+            height: 10px
+
+      .mine-order-menu
+        display: flex
+        flex-direction: row
+
+        .mine-order-menuItem
+          flex: 1
+          text-align: center
+          padding: 20px 0
+
+          .mine-order-menuItem-image
+            width: 22px
+            height: 22px
+            margin-bottom: 7px
+
+          .mine-order-menuItem-txt
+            font-size: $font-size-small
+            color: $color-text
+
+    .mine-serve
+      background: $color-highlight-background
+      border-top: .5px solid $color-row-line
+      border-bottom: .5px solid $color-row-line
+      padding-left: 12px
+
+      .mine-serve-Item
+        height: 44px
+        display: flex
+        justify-content: space-between
+        align-items: center
+        border-bottom: .5px solid $color-row-line
+        padding-right: 12px
+
+        .mine-serve-Item-left
+          display: flex
+          height: 44px
+          align-items: center
+
+          .mine-serve-menuItem-image
+            width: 16px
+            height: 16px
+            margin-right: 11px
+
+          .mine-serve-menuItem-txt
+            font-size: $font-size-small
+            color: $color-text
+
+        .mine-serve-Item-right
+          display: flex
+          align-items: center
+
+          .mine-order-headIcon
+            width: 6px
+            height: 10px
+
+      view:last-child
+        border-bottom: 0 none
+
+
+    .mine-main-under
+      margin-top: 10px
+      background: $color-highlight-background
+      border-bottom: .5px solid $color-row-line
+      padding-left: 12px
+
+      .mine-serve-Item
+        height: 44px
+        display: flex
+        justify-content: space-between
+        align-items: center
+        border-bottom: .5px solid $color-row-line
+        padding-right: 12px
+
+        .mine-serve-Item-left
+          display: flex
+          height: 44px
+          align-items: center
+
+          .mine-serve-menuItem-image
+            width: 16px
+            height: 16px
+            margin-right: 11px
+
+          .mine-serve-menuItem-txt
+            font-size: $font-size-small
+            color: $color-text
+
+        .mine-serve-Item-right
+          display: flex
+          align-items: center
+          .mine-serve-avatar-box
+            display: flex
+            .mine-serve-avatarBox-item
+              border: 1px solid $color-white
+              width: 20px
+              height: 20px
+              border-radius: 50%
+              margin-right: -5px
+              .mine-serve-avatarBox-img
+                width: 20px
+                height: 20px
+                background: #ccc
+                border-radius: 50%
+
+          .shop-count
+            font-size: $font-size-medium
+            color: $color-text
+            margin: 0 5px 0px 8px
+
+          .mine-order-headIcon
+            width: 6px
+            height: 10px
+
+      view:last-child
+        border-bottom: 0 none
+    .mine-logo
+      text-align: center
+      margin-top: 3vh
+
+      .mine-logo-image
+        width: 47.5px
+        height: 17.5px
+        margin-bottom: 3px
+
+      .mine-logo-txt
+        font-size: $font-size-small-s
+        color: #c8c8c8
+
+</style>

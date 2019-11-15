@@ -1,0 +1,381 @@
+<template>
+  <view animation="{{maskAnimation}}" class="share" @tap.stop="hide"
+        wx:if="{{show}}">
+    <canvas canvas-id="target" class="canvas"></canvas>
+    <view animation="{{modalAnimation}}" class="modal border-top-1px"
+          wx:if="{{show}}">
+      <view class="share-content-wrapper">
+        <button class="wx" open-type="share">
+          <view class="wrapper">
+            <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/recommend/icon-wx@2x.png'}}"></image>
+            <view class="text">微信好友</view>
+          </view>
+        </button>
+        <view class="line" @tap="generatePicture">
+          <image wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/recommend/icon-pyq@2x.png'}}"></image>
+          <view class="text">微信朋友圈</view>
+        </view>
+      </view>
+      <view class="split border-top-1px border-bottom-1px"></view>
+      <view class="cancel">
+        取消
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import Tips from 'common/js/tips'
+  import URIS from 'common/js/config'
+  import base from 'common/mixins/base'
+
+  export default class Share extends wepy.component {
+    mixins = [base]
+    props = {
+      promotionImages: {
+        type: Array,
+        default: []
+      },
+      detail: {
+        type: Object,
+        default: {}
+      },
+      qrcode: String
+    }
+
+    data = {
+      show: false,
+      maskAnimation: '',
+      modalAnimation: '',
+      imageUrlHead: URIS.image
+    }
+
+    async _drawCanvas(type) {
+      const shopName = wepy.getStorageSync('shop') ? wepy.getStorageSync('shop').shop_name : ''
+      const ctx = await wepy.createCanvasContext('target')
+      this.shareBgs = this.$parent.$parent.globalData ? this.$parent.$parent.globalData.shareBgs : this.$parent.$parent.$parent.$parent.globalData.shareBgs
+      this.shareArrows = this.$parent.$parent.globalData ? this.$parent.$parent.globalData.shareArrows : this.$parent.$parent.$parent.$parent.globalData.shareArrows
+      this.shareManys = this.$parent.$parent.globalData ? this.$parent.$parent.globalData.shareManys : this.$parent.$parent.$parent.$parent.globalData.shareManys
+      this.shareActivityIcon = this.$parent.$parent.globalData ? this.$parent.$parent.globalData.shareActivityIcon : this.$parent.$parent.$parent.$parent.globalData.shareActivityIcon
+      this.shareGife = this.$parent.$parent.globalData ? this.$parent.$parent.globalData.shareGife : this.$parent.$parent.$parent.$parent.globalData.shareGife
+      this.shareAvatars = this.$parent.$parent.globalData ? this.$parent.$parent.globalData.shareAvatars : this.$parent.$parent.$parent.$parent.globalData.shareAvatars
+//      分享背景
+//      const bgs = await wepy.downloadFile({url: URIS.image + '/defaults/service-image/pic-sharebg.png'})
+//      分享券卷箭头
+//      const arrows = await wepy.downloadFile({url: URIS.image + '/defaults/service-image/pic-share_arrow.png'})
+//      小程序码
+      const qrcodes = await wepy.downloadFile({url: this.qrcode})
+      const user = wepy.getStorageSync('user') ? wepy.getStorageSync('user') : {}
+      let qrcode = qrcodes.tempFilePath
+      let bg = this.shareBgs
+      let arrow = this.shareArrows
+      ctx.drawImage(bg, 0, 0, 1500, 1800)
+      ctx.drawImage(arrow, 562, 1432, 300, 100)
+      ctx.drawImage(qrcode, 908.6, 1262.6, 380.6, 380.6)
+      if (type === 'live') {
+        const pics = await wepy.downloadFile({url: this.promotionImages})
+        let pic = pics.tempFilePath
+        let avatar = this.shareAvatars.tempFilePath
+        ctx.drawImage(avatar, 200, 1340, 96, 96)
+        ctx.drawImage(pic, 110, 62, 1280, 852)
+        let arr = [{
+          name: '望方',
+          content: '迫不及待的下了单'
+        }, {
+          name: '李芳',
+          content: '对本次直播拍照留念！'
+        }, {
+          name: '璐璐',
+          content: '商品非常棒，很划算'
+        }]
+        for (var i = 0; i < 3; i++) {
+          let height = 920 + (i + 1) * 70
+          ctx.setFillStyle('#EF705D')
+          ctx.setFontSize(40)
+          ctx.fillText(`${arr[i].name}:`, 150, height)
+          ctx.setFillStyle('#464646')
+          ctx.setFontSize(40)
+          ctx.fillText(arr[i].content, 250, height)
+        }
+
+        ctx.setFontSize(48)
+        ctx.setFillStyle('#464646')
+        ctx.fillText(user.nickName, 310, 1400)
+        ctx.fillText('邀请你参加活动', 200, 1530)
+
+        ctx.setFillStyle('#464646')
+        ctx.setFontSize(40)
+        ctx.fillText(shopName, 370, 1700)
+      } else if (type === 'content') {
+        const pics = await wepy.downloadFile({url: this.detail.image_url})
+        let pic = pics.tempFilePath
+        let avatar = this.shareAvatars.tempFilePath
+        ctx.drawImage(pic, 110, 62, 1280, 816)
+        ctx.setFontSize(72)
+        ctx.setFillStyle('#464646')
+        ctx.setTextAlign('center')
+        ctx.fillText('· ' + this.detail.title + ' ·', 750, 1050)
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.moveTo(174, 1022)
+        ctx.lineTo(388, 1022)
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.moveTo(1112, 1022)
+        ctx.lineTo(1326, 1022)
+        ctx.stroke()
+
+        ctx.beginPath()
+        ctx.setTextAlign('left')
+        ctx.setFontSize(48)
+        ctx.drawImage(avatar, 200, 1340, 96, 96)
+        ctx.fillText(user.nickName, 310, 1400)
+        ctx.fillText('邀请你参加活动', 200, 1530)
+      } else if (type === 'shareMoney') {
+//        分享赚钱活动图片
+        await this.drawActivity(ctx, user, shopName, '先领券 再购买', '券后价')
+      } else if (type === 'groupBuy') {
+//        团购的活动分享图片
+        await this.drawActivity(ctx, user, shopName, '拼团优惠', '团购价')
+      } else {
+//        const manys = await wepy.downloadFile({url: URIS.image + '/defaults/service-image/icon-many.png'})
+//        const shares = await wepy.downloadFile({url: URIS.image + '/defaults/service-image/icon-share_prize.png'})
+        const pics = await wepy.downloadFile({url: this.promotionImages[0].image.url})
+        let pic = pics.tempFilePath
+        let many = this.shareManys
+        let share = this.shareGife
+        let avatar = this.shareAvatars.tempFilePath
+//        个人信息
+        ctx.setFontSize(48)
+        ctx.drawImage(avatar, 200, 1340, 96, 96)
+        ctx.fillText(user.nickName, 310, 1400)
+        ctx.fillText('邀请你参加活动', 200, 1530)
+        ctx.drawImage(pic, 110, 62, 1280, 682)
+        ctx.setFontSize(48)
+        ctx.setFillStyle('#464646')
+        ctx.fillText(this.detail.title, 148, 852)
+        ctx.setFontSize(40)
+        ctx.setFillStyle('#696671')
+        ctx.fillText(this.detail.stock === -1 ? '不限制' : `限量${this.detail.stock}件`, 150, 930)
+        ctx.setFillStyle('#FF4E00')
+        ctx.fillText('¥', 150, 1078)
+
+        ctx.setFontSize(72)
+        ctx.fillText(this.detail.platform_price, 190, 1078)
+
+        ctx.setFontSize(40)
+        ctx.setFillStyle('#464646')
+        ctx.fillText(`门市价:¥${this.detail.shop_price}`, 328, 1074)
+
+        ctx.drawImage(many, 738, 1045, 32, 30)
+        ctx.fillText(this.detail.collected < 100 ? '100人已购买' : `${this.detail.collected}已购买`, 780, 1074)
+        ctx.drawImage(share, 1131.4, 807.4, 220, 220)
+      }
+      ctx.draw()
+    }
+
+    async drawActivity(ctx, user, shopName, title, activityTitle) {
+//      const manys = await wepy.downloadFile({url: URIS.image + '/defaults/service-image/icon-many.png'})
+//      const activityIcon = await wepy.downloadFile({url: URIS.image + '/defaults/c-image/share/pic-price@2x.png'})
+//    商品图片
+      const pics = await wepy.downloadFile({url: this.promotionImages[0].image.url})
+      let many = this.shareManys
+      let avatar = this.shareAvatars.tempFilePath
+      let activityIcons = this.shareActivityIcon
+      let pic = pics.tempFilePath
+//        活动标题
+      let num = 0
+      for (let i = 0; i < title.length; i++) {
+        if (title[i] === ' ') {
+          num++
+        }
+      }
+      let length = title.length - num * 0.7
+      let width = length * 64
+      let lineWidth = 150
+      let widthLeft = (1500 - width) / 2 - 140
+//        左线条
+      ctx.setFillStyle('#A19BB6')
+      ctx.beginPath()
+      ctx.setLineWidth(2)
+      ctx.moveTo(widthLeft, 136)
+      ctx.lineTo(widthLeft + lineWidth, 136)
+      ctx.stroke()
+//       右线条
+      ctx.setFillStyle('#A19BB6')
+      ctx.beginPath()
+      ctx.setLineWidth(2)
+      ctx.moveTo(widthLeft + lineWidth + width + 35, 136)
+      ctx.lineTo(widthLeft + lineWidth * 2 + width + 35, 136)
+      ctx.stroke()
+      const textLeft = (1500 - width) / 2 + 30
+      ctx.setFontSize(64)
+      ctx.setFillStyle('#000000')
+      ctx.fillText(title, textLeft, 160)
+//        商品名称
+      ctx.setFontSize(48)
+      ctx.setFillStyle('#464646')
+      ctx.fillText(this.detail.title, 148, 962)
+//        活动标签
+      ctx.setFontSize(40)
+      ctx.drawImage(activityIcons, 150, 1022, 152, 56)
+      ctx.setFillStyle('#FF4E00')
+      ctx.fillText(activityTitle, 162, 1068)
+//        钱￥
+      ctx.setFillStyle('#FF4E00')
+      ctx.fillText('¥', 312, 1078)
+//      金额
+      ctx.setFontSize(72)
+      ctx.fillText(this.detail.platform_price, 337, 1078)
+//      门市价
+      ctx.setFontSize(40)
+      ctx.setFillStyle('#464646')
+      ctx.fillText(`门市价:¥${this.detail.shop_price}`, 578, 1074)
+//      购买人数
+      ctx.drawImage(many, 908, 1045, 32, 30)
+      ctx.fillText(this.detail.buyCount < 100 ? '100人已购买' : `${this.detail.buyCount}已购买`, 938, 1074)
+
+      ctx.setFontSize(48)
+      ctx.drawImage(avatar, 200, 1340, 96, 96)
+      ctx.fillText(user.nickName, 310, 1400)
+      ctx.fillText('邀请你参加活动', 200, 1530)
+      //        店铺名
+      ctx.setFillStyle('#464646')
+      ctx.setFontSize(40)
+      ctx.fillText(shopName, 370, 1700)
+      //        商品图片
+//      ctx.fillRect(140, 210, 1220, 680)
+      ctx.drawImage(pic, 140, 210, 1220, 680)
+    }
+
+    methods = {
+      drawCanvas(type) {
+        this._drawCanvas(type)
+      },
+      async generatePicture() {
+        Tips.loading('生成中')
+        const res = await wepy.canvasToTempFilePath({
+          x: 0,
+          y: 0,
+          width: 1500,
+          height: 1800,
+          destWidth: 1500,
+          destHeight: 1800,
+          canvasId: 'target'
+        })
+        await wepy.previewImage({urls: [res.tempFilePath]})
+        Tips.loaded()
+//        await wepy.saveImageToPhotosAlbum({filePath: res.tempFilePath})
+        this.$emit('sharePunchLine')
+      },
+      hide() {
+        let modalAnimation = wepy.createAnimation({
+          duration: 200,
+          timingFunction: 'linear',
+          delay: 0
+        })
+        let maskAnimation = wepy.createAnimation({
+          duration: 200,
+          timingFunction: 'linear',
+          delay: 0
+        })
+        maskAnimation.opacity(0).step()
+        modalAnimation.translateY(114).step()
+        this.maskAnimation = maskAnimation.export()
+        this.modalAnimation = modalAnimation.export()
+        setTimeout(() => {
+          maskAnimation.opacity(1).step()
+          modalAnimation.translateY(0).step()
+          this.maskAnimation = maskAnimation.export()
+          this.modalAnimation = modalAnimation.export()
+          this.show = false
+          this.$apply()
+        }, 200)
+      },
+      show(type) {
+        this._drawCanvas(type)
+        let modalAnimation = wepy.createAnimation({
+          duration: 200,
+          timingFunction: 'linear',
+          delay: 0
+        })
+        let maskAnimation = wepy.createAnimation({
+          duration: 200,
+          timingFunction: 'linear',
+          delay: 0
+        })
+        maskAnimation.opacity(0).step()
+        modalAnimation.translateY(114).step()
+        this.maskAnimation = maskAnimation.export()
+        this.modalAnimation = modalAnimation.export()
+        this.show = true
+        setTimeout(() => {
+          maskAnimation.opacity(1).step()
+          modalAnimation.translateY(0).step()
+          this.maskAnimation = maskAnimation.export()
+          this.modalAnimation = modalAnimation.export()
+          this.$apply()
+        }, 200)
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import '../../common/stylus/variable'
+  @import '../../common/stylus/mixin'
+
+  .share
+    position: fixed
+    top: 0
+    left: 0
+    width: 100%
+    height: 100%
+    overflow: hidden
+    z-index: 2000
+    .canvas
+      width: 1500px
+      height: 1800px
+      transform: scale(.25) translateX(200%)
+      transform-origin: left top
+    .modal
+      position: fixed
+      bottom: 0
+      left: 0
+      width: 100%
+      height: 114px
+      overflow: hidden
+      z-index: 2000
+      background: $color-white
+      box-shadow: 0 -4px 20px rgba(0, 0, 0, .1)
+      .share-content-wrapper
+        display: flex
+        align-items: center
+        justify-content: center
+        height: 67px
+        image
+          width: 32px
+          height: 32px
+        .text
+          font-size: $font-size-small-s
+          color: $color-text
+        .wx
+          line-height: 1
+          margin: 0
+          margin-right: 97px
+          border-none()
+          background: transparent
+          text-align: center
+        .wrapper, .line
+          text-align: center
+      .split
+        height: 5px
+        background-color: $color-background
+      .cancel
+        line-height: 40px
+        text-align: center
+        font-size: $font-size-medium
+</style>

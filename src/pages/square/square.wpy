@@ -1,0 +1,749 @@
+<template>
+  <view class="banner" @tap="selectScene">
+    <image class="via" src="{{avatarUrl}}"></image>
+    <block wx:for="{{sceneList}}" wx:key="item.name">
+      <view class="item {{selectOption===item.id?'hit':''}}" id="{{item.id}}">
+        {{item.name}}
+      </view>
+    </block>
+    <view class="more" @tap.stop="toMore">
+      <image class="more-pic" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/c-image/square/icon-s_list@2x.png'}}"></image>
+    </view>
+  </view>
+
+
+  <view class="good-shop">
+    <view class="item-content"
+          @touchmove="handletouchmove"
+          @touchstart="touchstart"
+          @touchend="setScroll"
+          @touchcancel="setScroll"
+          style="transform:translate({{leftIndex}}px, 0);transition:{{transition}}">
+      <view class="shop-item {{navIndex  === index ? 'shop-item-action':''}}"
+            wx:for="{{merchantInfos}}"
+            wx:key="{{index}}"
+            @tap="navShop({{item}},{{index}})">
+        <view class="img-box">
+          <image class="shop-img" src="{{item.shop_image}}" mode="aspectFill"></image>
+        </view>
+        <view class="shop-name">{{item.shop_name}}</view>
+        <view class="remark">
+          <view class="starts">
+            <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 0.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 1 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+            <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 1.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 2 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+            <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 2.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 3 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+            <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 3.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 4 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+            <image class="start" wx:if="{{imageUri}}" src="{{imageUri + '/defaults/circle-image/area/' + (item.shop_power === 4.5 ? 'icon-area_star03@2x.png' : item.shop_power >= 5 ? 'icon-area_star01@2x.png' : 'icon-area_star02@2x.png')}}"></image>
+          </view>
+        </view>
+        <view class="shop-info">
+          <view class="shop-info-item">
+            <view>优惠券</view>
+            <view>{{item.filters.promotion_count || 0}}</view>
+          </view>
+          <view class="shop-info-item border-1px">
+            <view>活动</view>
+            <view>{{item.filters.activity_count || 0}}</view>
+          </view>
+          <view class="shop-info-item">
+            <view>内容</view>
+            <view>{{item.filters.content_count || 0}}</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <map id="map"
+       scale="18"
+       show-location="true"
+       longitude="{{longitude}}"
+       latitude="{{latitude}}"
+       controls="{{controls}}"
+       markers="{{markers}}"
+       polyline="{{polyline}}"
+       bindcontroltap="controltap"
+       bindmarkertap="markertap">
+  </map>
+  <integral-popout></integral-popout>
+</template>
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import users from 'common/mixins/users'
+  import base from 'common/mixins/base'
+  import {ERR_OK} from 'api/base'
+  import Merchants from 'api/merchants'
+  import URIS from 'common/js/config'
+  // import GDMap from 'common/libs/amap-wx'
+  // import Address from 'api/address'
+  import IntegralPopout from '@/base/integral-popout/integral-popout'
+
+  const CURRENT = 0 // 当前id
+  const HOME = -1 // 家id
+  const COMPANY = -2 // 当公司id
+  /**
+   * 获取设备尺寸
+   * @returns {{width: *, height: *}}
+   */
+  function getDeviceInfo() {
+    const res = wepy.getSystemInfoSync()
+    const width = res.windowWidth
+    const height = res.windowHeight
+    return {width, height}
+  }
+
+  const DEVICEINFO = getDeviceInfo()
+
+  export default class Square extends wepy.page {
+    mixins = [users, base]
+
+    data = {
+      // map
+      imageUri: URIS.image,
+      avatarUrl: '',
+      sceneList: [{
+        name: '当前',
+        id: CURRENT,
+        type: CURRENT
+      }, {
+        name: '家',
+        id: HOME,
+        type: -1 * HOME
+      }, {
+        name: '公司',
+        id: COMPANY,
+        type: -1 * COMPANY
+      }],
+      sceneListSta: [0, 0, 0], // 判断是否加载过一次
+      selectOption: 0, // 场景状态
+      navIndex: 0, // 店铺状态
+      activeMarkerId: '', // icon标记，点击设置它的值
+      leftIndex: 0, // 滑动距离
+      transition: 'all .3s', // 滑动动画
+      pageHide: false, // 是否离开页面
+      senceInfos: [],
+      merchantInfos: [],
+      tmpMaps: [],
+      scale: 18,
+      longitude: '',
+      latitude: '',
+      controls: [],
+      markers: [],
+      polyline: [],
+      latLon: {  // 此经纬度用于获取商圈id
+        longitude: '',
+        latitude: ''
+      },
+      businessCircleId: '-1' // 商圈ID
+    }
+    methods = {
+      // 切换当前，家，公司 场景
+      async selectScene(e) {
+        if (e.target.id === '') return
+        let id = e.target.id * 1
+        if (!this._isNotEmptyToJump(id)) {
+          return
+        }
+//        if (id === this.selectOption) {
+//          return
+//        }
+        this.selectOption = id
+        this.$apply()
+        this._setMap()
+      },
+      // 开始触摸记录滑动距离
+      async touchstart(e) {
+        this.flagX = e.touches[0].pageX
+        this.transition = ''
+        this.tmpLetIndex = this.leftIndex
+        this.$apply()
+      },
+      // 触摸后移动计算滑动方向
+      async handletouchmove(event) {
+        let currentX = event.touches[0].pageX
+        let currentY = event.touches[0].pageY
+        let text = ''
+        this.tmpx = currentX - this.flagX
+        this.leftIndex = this.tmpx + this.tmpLetIndex
+        if ((currentX - this.lastX) < 0) {
+          text = 'left'
+        } else if (((currentX - this.lastX) > 0)) {
+          text = 'right'
+        }
+        // 将当前坐标进行保存以进行下一次计算
+        this.lastX = currentX
+        this.lastY = currentY
+        this.textFlag = text
+      },
+      //  触摸结束
+      async setScroll(e) { // transition:all .5s
+        this.transition = 'all .3s'
+        if (Math.abs(this.tmpx) > 65) {
+          this.leftIndex = this.tmpLetIndex
+          let len = this.merchantInfos.length * 130
+          let ten = (this.merchantInfos.length - 1) * 10
+          let con = len + ten
+          if (this.textFlag === 'left') {
+            if (con + this.leftIndex > 142.5 * 1) {
+              if (this.leftIndex === 0) {
+                this.leftIndex = this.leftIndex - 142.5
+              } else {
+                this.leftIndex = this.leftIndex - 140
+              }
+            }
+          } else if (this.textFlag === 'right') {
+            if (this.leftIndex < 0) {
+              if (this.leftIndex === -142.5) {
+                this.leftIndex = this.leftIndex + 142.5
+              } else {
+                this.leftIndex = this.leftIndex + 140
+              }
+            }
+          }
+          if (this.textFlag === 'left' || this.textFlag === 'right') {
+            // await this._scaleMarker(0)
+            this.navIndex = Math.abs(parseInt(this.leftIndex / 140))
+            let item = this.merchantInfos[this.navIndex]
+            let res = this.markers.find((items) => items.id === item.id)
+            this.$apply()
+            this.setIcons(res)
+          }
+          this.textFlag = '没有滑动'
+        } else {
+          this.leftIndex = this.tmpLetIndex
+        }
+        this.$apply()
+      },
+      // 进入商铺详情
+      async navShop(item, index) {
+        let url = `/pages/shop-introduce/shop-introduce?merchantId=${item.merchant_id}&title=${item.shop_name}`
+        this.$navigate(url)
+      },
+      // 进入商铺列表
+      toMore() {
+        let url = `/pages/square-list/square-list?longitude=${this.latLon.longitude}&latitude=${this.latLon.latitude}&businessCircleId=${this.businessCircleId}`
+        this.$navigate(url)
+      },
+      // 地图控件点击
+      controltap() {
+        this.mapContext.moveToLocation()
+      },
+      // 点击气泡时触发
+      async markertap(e) {
+        let markerId = e.markerId
+        // 点击当前或家或公司return
+        if (markerId * 1 <= 0) {
+          return
+        }
+        // 如果id相同则return
+        if (this.activeMarkerId === markerId) {
+          return
+        }
+        // await this._scaleMarker(0)
+        await this.setNav(e)
+        // this.activeMarkerId = markerId
+        await this._scaleMarker(1)
+        // 获取店家信息
+      }
+    }
+    // 缩放地图标记点尺寸
+    async _scaleMarker(type) {
+      let numbers = this.senceInfos.length
+      const _index = this.navIndex + numbers
+      this.markers.forEach((item, index) => {
+        if (index === _index * 1) {
+          item.width = 40
+          item.height = 40
+          if (item.iconPath.indexOf('area') < 0) {
+            let png = item.iconPath.split('_')[1]
+            item.iconPath = `icon-red_${png}`
+            this.activeMarkerId = item.id
+          }
+        } else {
+          item.width = 30
+          item.height = 30
+          if (item.iconPath.indexOf('area') < 0) {
+            let png = item.iconPath.split('_')[1]
+            item.iconPath = `icon-red_${png}`
+          }
+        }
+      })
+      this.$apply()
+    }
+    // icon关联商铺
+    async setNav(e) {
+      let id = e.markerId
+      let data = {}
+      let make = 0
+      this.merchantInfos.forEach((item, index) => {
+        if (item.id === id) {
+          this.navIndex = index
+          data = item
+          this.$apply()
+        }
+      })
+      if (this.navIndex >= 1) { // 补偿修正
+        make = 2.5
+      }
+      let k = this.navIndex * 10
+      let s = this.navIndex * 130
+      let d = k + s + make
+      this.leftIndex = -d
+      this.setCentre(data.latitude, data.longitude) // 定位中点
+      this.$apply()
+    }
+    // 商铺关联icon
+    async setIcons(e) {
+      await this._scaleMarker(1)
+      this.setCentre(e.latitude, e.longitude)
+    }
+    async onLoad() {
+      await this._getVia() // 获取微信头像
+      await this._addScore() // 增加播豆
+      // await this._setMap()
+    }
+    async onShow() {
+      // await this._setMap()
+      // 获取当前,家,公司 经纬度
+      await this._getLocationInfo(this.selectOption)
+      let currentBusiness = wepy.getStorageSync('businessCircleId')
+      if (currentBusiness === this.businessCircleId) {
+        this.loaded()
+        return
+      }
+      this.markers = []
+      this.sceneListSta = [0, 0, 0]
+      this.$apply()
+      await this.drawingMap()
+    }
+    // async onHide() {
+    //   this.pageHide = true
+    // }
+    // 渲染地图
+    async _setMap () {
+      // 先清除状态与地图
+      // await this.clearMap()
+      // 缓存
+      // await this._tmpMaps()
+      // 再渲染
+      // 获取当前,家,公司 经纬度
+      await this._getLocationInfo(this.selectOption)
+      await this.drawingMap()
+    }
+    // async _tmpMaps() {
+    //   this.tmpMaps = this.maps
+    // }
+    // 清除地图
+    async clearMap() {
+      this.navIndex = 0
+      this.leftIndex = 0
+      // this.merchantInfos = []
+      this.activeMarkerId = ''
+//      this.longitude = 0
+//      this.latitude = 0
+      this.controls = []
+      this.markers = []
+      this.polyline = []
+      this.$apply()
+    }
+    // 用户增加播豆
+    async _addScore() {
+      const json = await Merchants.userAddScore('login')
+      if (json.error !== ERR_OK) {
+        this.loaded()
+        return
+      }
+      if (json.error === ERR_OK && json.code === 10002) {
+        this.loaded()
+        return
+      }
+      let value = json.data.score_value
+      this.loaded()
+      value && this.$invoke('integral-popout', 'openPoput', 'login', value, '登录')
+    }
+    // 获取微信头像
+    async _getVia() {
+      const token = wepy.getStorageSync('token')
+      if (token) {
+        const userInfo = await this.$getUserInfo()
+        this.avatarUrl = userInfo.avatarUrl
+        this.$apply()
+      }
+    }
+    async drawingMap() {
+      // 如果二次请求不再发起
+      // if (this.sceneList[Math.abs(this.selectOption)].merchantInfos.length <= 0) {
+      // 跟据经纬度获取商圈id
+      await this._getBusinessId(this.latLon.longitude, this.latLon.latitude)
+      // 跟据商圈id获取所有商家信息
+      await this._getMerchantInfos(this.businessCircleId)
+      await this.clearMap()
+      // 结束
+      this.loaded()
+      // 渲染到地图marker和顶部滑动
+      await this.setMarkers()
+      // 渲染控件
+      await this._setControls()
+      // 获取map上下文
+      await this._getMapContext()
+    }
+    // 获取当前或家或公司的经纬度
+    async _getLocationInfo(type) {
+      const res1 = await Merchants.getDimension(1) // 家
+      if (res1.error === ERR_OK) {
+        if (res1.data.app_longitude !== '' && res1.data.app_latitude !== '') {
+          this.senceInfos[0] = {
+            id: '-1',
+            longitude: res1.data.app_longitude,
+            latitude: res1.data.app_latitude,
+            width: 32,
+            height: 32,
+            iconPath: './icon-area_home@2x.png'
+          }
+        }
+      }
+      const res2 = await Merchants.getDimension(2) // 公司
+      if (res2.error === ERR_OK) {
+        if (res2.data.app_longitude !== '' && res2.data.app_latitude !== '') {
+          this.senceInfos[1] = {
+            id: '-2',
+            longitude: res2.data.app_longitude,
+            latitude: res2.data.app_latitude,
+            width: 32,
+            height: 32,
+            iconPath: './icon-area_com@2x.png'
+          }
+        }
+      }
+      if (type * 1) {
+        type = Math.abs(type)
+        this.latLon.longitude = this.senceInfos[type - 1].longitude
+        this.latLon.latitude = this.senceInfos[type - 1].latitude
+      } else {
+        const res = await wepy.getLocation({type: 'gcj02'})
+        this.latLon.longitude = res.longitude
+        this.latLon.latitude = res.latitude
+      }
+      this.$apply()
+    }
+    // 获取商圈ID
+    async _getBusinessId(longitude, latitude) {
+      const json = await Merchants.getBusinessCircleId(longitude, latitude)
+      if (json.error === ERR_OK) {
+        let businessCircleId = json.data.business_circle_id
+        this.businessCircleId = businessCircleId
+        this.$apply()
+        wepy.setStorageSync('businessCircleId', businessCircleId)
+      }
+    }
+    // 获取商圈所有店家的信息
+    async _getMerchantInfos(businessCircleId) {
+      const json = await Merchants.getPlazaMerchantsNew(businessCircleId)
+      if (json.error === ERR_OK) {
+        const res = json.data
+        this.merchantInfos = res
+        this.sceneList[Math.abs(this.selectOption)].merchantInfos = res
+        this.$apply()
+      }
+    }
+    // 渲染地图图标
+    async setMarkers() {
+      let markers = []
+      this.sceneList[Math.abs(this.selectOption)].merchantInfos.map((item, index) => {
+        let icon = 'red_'
+        let codeNname = item.industry.code_name || 'baby'
+        let w = 30
+        let h = 30
+        if (this.navIndex * 1 === index) {
+          if (this.selectOption) {
+            let r = this.senceInfos.find((item) => { return item.id * 1 === this.selectOption })
+            this.setCentre(r.latitude, r.longitude) // 定位中心
+          } else {
+            icon = 'red_'
+            w = 40
+            h = 40
+            this.setCentre(item.latitude, item.longitude) // 定位中心
+          }
+        }
+        markers.push({
+          iconPath: `./icon-${icon + codeNname}@2x.png`,
+          id: item.id,
+          latitude: item.latitude,
+          longitude: item.longitude,
+          width: w,
+          height: h,
+          merchantId: item.merchant_id
+        })
+      })
+      this.markers.push(...this.senceInfos)
+      this.markers.push(...markers)
+      this.pageHide = false
+      this.$apply()
+    }
+    // 渲染控件
+    async _setControls() {
+      if (this.selectOption !== 0) {
+        this.controls = []
+        this.$apply()
+        return
+      }
+      // 判断是否有控件
+      if (this.controls.length > 0) return
+      // 加载控件
+      this.controls.push({
+        id: 10000,
+        iconPath: './icon-s_return@2x.png',
+        clickable: true,
+        position: {
+          width: 36,
+          height: 36,
+          left: DEVICEINFO.width - 50,
+          top: DEVICEINFO.height - 230 - 120
+        }
+      })
+      this.$apply()
+    }
+    // 获取map上下文
+    async _getMapContext() {
+      this.mapContext = await wepy.createMapContext('map')
+    }
+    // 定位中心
+    async setCentre(lat, lon) {
+      this.latitude = lat
+      this.longitude = lon
+      this.$apply()
+    }
+    // 如果家或公司的地址为空则跳转
+    _isNotEmptyToJump(id) {
+      console.log(id)
+      console.log(this.senceInfos)
+      if (id !== 0) {
+        let flag = false
+        this.senceInfos.forEach((item) => {
+          if (item.id * 1 === id) {
+            flag = true
+            return false
+          }
+        })
+        if (!flag) {
+          let url = `/pages/user/address/address`
+          this.$navigate(url)
+          return false
+        }
+      }
+      return true
+    }
+    // 分享
+    onShareAppMessage() {
+      return {
+        title: '广场',
+        path: '/pages/square/square?businessCircleId=' + wepy.getStorageSync('businessCircleId')
+      }
+    }
+    components = {
+      'integral-popout': IntegralPopout
+    }
+    config = {
+      navigationBarTitleText: '广场',
+      disableScroll: true
+    }
+  }
+
+</script>
+<style lang="stylus">
+  @import "../../common/stylus/variable"
+  @import "../../common/stylus/mixin"
+  page
+    overflow: hidden
+    height: 100vh
+    display: flex
+    flex-direction: column
+  .banner
+    layout(row)
+    position: position
+    justify-content: flex-start
+    align-items: center
+    width: 100vw
+    height: 45px
+    background-color: $color-highlight-background
+    .via
+      width: 7.9vw
+      height: 7.9vw
+      border-radius: 100%
+      margin: 0 3.3vw 0 3.6vw
+      border: 1px solid #EBEBEB
+    .item
+      width: 60px
+      height: 24px
+      border-radius: 100px
+      text-align: center
+      line-height: 24px
+      font-size: $font-size-medium
+      color: $color-text
+      font-family: PingFangSC-Light;
+      letter-spacing: 0;
+    .item.hit
+      background-color: $color-button
+      color: $color-highlight-background
+    .more
+      position: absolute
+      right: 3.9vw
+      width: 9.2vh
+      height: 7.2vh
+      layout()
+      justify-content: center
+      align-items: flex-end
+      .more-pic
+        width: 4.8vw
+        height: 4.8vw
+
+  .good-shop
+    position: relative
+    width: 100%
+    height: 185px
+    box-sizing: border-box
+    background-color: $color-white
+    background: $color-white
+    padding:8px 0px
+    border-bottom: 1px solid $color-ROW-line-s
+    overflow: hidden
+    .item-head
+      display: flex
+      align-items: center
+      height: 50px
+      padding-left: 12px
+      justify-content: space-between
+      .item-title
+        font-family: PingFangSC-Regular
+        font-size: $font-size-medium-x
+        color: $color-text-title
+      .head-right
+        display: flex
+        margin-right: 16px
+        .right-item
+          width: 50px
+          height: 24px
+          border-radius: 12px
+          background: $color-white
+          font-family: PingFangSC-Light
+          font-size: $font-size-small
+          color: $color-text
+          text-align: center
+          line-height: 24px
+        .right-item.active
+          background: #706B82
+          color: $color-white
+    .item-content
+      /*height: 165px*/
+      white-space: nowrap
+      width: 100%
+      height: 175px
+      .shop-item
+        width: 130px
+        height: 165px
+        margin-right: 10px
+        display: inline-block
+        box-shadow: 0 4px 10px 0 rgba(0,0,0,0.10)
+        border-radius: 2px
+        position: relative
+        &:first-child
+          margin-left: 12.5px
+        .img-box
+          width: 130px
+          height: 70px
+          box-sizing: border-box
+          border-radius: 2px 2px 0px 0px
+          overflow: hidden
+          margin-bottom: 9.5px
+          border-bottom: 0.5px solid $color-col-line
+          .shop-img
+            width: 100%
+            height: 100%
+        .shop-name
+          font-family: $font-family-regular
+          font-size: $font-size-medium
+          color: $color-text
+          overflow: hidden
+          text-overflow: ellipsis
+          white-space: nowrap
+          margin-bottom: 7.5px
+          margin-left: 7.5px
+          height:14px
+
+        .remark
+          display: flex
+          height: 10px
+          align-items: center
+          margin-bottom: 19.5px
+          margin-left: 7.5px
+          .remark-txt
+            font-family: PingFangSC-Light
+            font-size: $font-size-small-s
+            color: $color-orange
+          .starts
+            display: flex
+            transform: translate(0, -0.5px)
+            .start
+              width: 10px
+              height: 10px
+              margin-right: 3px
+              &:last-child
+                margin-right: 0
+
+        .shop-info
+          display: flex
+          margin: 0px 1px
+          height: 22px
+          .border-1px
+            border-left: .5px solid $color-ROW-line-s
+            border-right: .5px solid $color-ROW-line-s
+          .shop-info-item
+            width: 33.33%
+            text-align: center
+            margin-top: 2px
+            height: 24px
+            view:first-child
+              margin: 0px 0px 3px 0px
+              font-family: $font-family-light
+              font-size: $font-size-small-s
+              color: $color-text-9b
+            view:last-child
+              font-family: $font-family-meddle
+              font-size: $font-size-small
+              color: $color-text
+
+      .shop-item-action:after
+        content: ''
+        height: 3px
+        background-color: $color-master
+        position: absolute
+        bottom: 0px
+        left: 0px
+        width: 100%
+        border-radius: 0px 0px 2px 2px
+    .allShop
+      width: 100%
+      height: 40px
+      border-top: 0.5px solid $color-col-line
+      line-height: 40px
+      text-align: center
+      font-family: PingFangSC-Light
+      font-size: $font-size-small
+      color: $color-main
+
+  #map
+    flex: 1
+    width: 100vw
+    .shop-white
+      position: relative
+      width: 100%
+      height: 10px
+      background-color: $color-white
+      border-bottom: 1px solid $color-ROW-line-s
+  .tab-shadow
+    position: absolute
+    top: -2.885vh
+    width: 100%
+    height: 8.8321vh
+</style>

@@ -1,0 +1,204 @@
+<template>
+  <view class="browse-shop">
+    <scroll-view scroll-y class="container" bindscrolltolower="loadMore">
+      <view class="shop-item" wx:for="{{shopList}}" wx:key="{{item}}" @tap="toShop({{item}})">
+        <view class="item-container {{item.is_expiration? 'dis':''}}">
+          <view class="shop-logo">
+            <image class="logo" src="{{item.logo}}" mode="aspectFill"></image>
+          </view>
+          <view class="item-content">
+            <view class="top">
+              <view class="title">{{item.shop_name}}</view>
+              <view class="describe">{{item.describe}}</view>
+            </view>
+            <view class="down">
+              <image class="down-icon" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon-address@2x.png'}}"></image>
+              <view class="address">{{item.particular_address}}</view>
+            </view>
+          </view>
+          <view class="closed-box" wx:if="{{item.is_expiration}}">
+            <image class="closed-img" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/icon_shop_soldout@2x.png'}}"></image>
+          </view>
+        </view>
+      </view>
+    </scroll-view>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import URIS from 'common/js/config'
+  import base from 'common/mixins/base'
+  import user from 'api/user'
+  import {ERR_OK} from '@/api/base'
+
+  export default class browseShop extends wepy.page {
+    mixins = [base]
+
+    config = {
+      navigationBarTitleText: '我浏览过的店',
+      navigationBarBackgroundColor: '#fff'
+    }
+
+    data = {
+      imageUrlHead: URIS.image,
+      shopList: [],
+      page: 1,
+      moreShop: true
+    }
+
+    async onShow() {
+      await this.load()
+    }
+
+    async load() {
+      let limit
+      if (!this.moreShop || this.shopList.length >= 100) {
+        limit = 100
+      } else {
+        limit = Math.ceil(this.shopList.length / 10) * 10 || 10
+      }
+      let data = {
+        page: 1,
+        limit
+      }
+      let resData = await user.browsingHistory(data)
+      this.loaded()
+      if (resData.error !== ERR_OK) {
+        return
+      }
+      this.shopList = resData.data
+      this.$apply()
+    }
+
+    methods = {
+      toShop(msg) {
+        if (msg.is_expiration) {
+          return
+        }
+        let LastBusiness = wepy.getStorageSync('businessCircleId') ? wepy.getStorageSync('businessCircleId') : ''
+        wx.navigateToMiniProgram({
+          appId: msg.app_id,
+          path: `${msg.path}&lastBusiness=${LastBusiness}&scene=13201`,
+          extraData: {
+          },
+          envVersion: URIS.jumpVersion,
+          success(res) {
+            // 打开成功
+          }
+        })
+      },
+      async loadMore() {
+        this.page ++
+        let data = {
+          page: this.page
+        }
+        let resData = await user.browsingHistory(data)
+        this.loaded()
+        if (resData.error !== ERR_OK) {
+          return
+        }
+        let res = resData.data
+        if (res.length === 0) {
+          this.page --
+          this.moreShop = false
+          this.$apply()
+          return
+        }
+        this.shopList = [...this.shopList, ...res]
+        this.$apply()
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import '../../common/stylus/variable'
+  @import '../../common/stylus/mixin'
+
+  page
+    width: 100vw
+    height: 100vh
+    background: $color-background
+
+    .browse-shop
+      width: 100%
+      height: 100%
+      .container
+        width: 100%
+        height: 100%
+
+        .shop-item
+          height: 61px
+          padding: 14.5px 12px
+          background: $color-white
+          margin-bottom: 10px
+          .item-container
+            width: 100%
+            height: 100%
+            display: flex
+            .shop-logo
+              width: 60px
+              height: 60px
+              border: 0.5px solid $color-col-line
+              border-radius: 2px
+              margin-right: 10px
+              .logo
+                width: 60px
+                height: 60px
+                border-radius: 2px
+            .item-content
+              flex: 1
+              display: flex
+              flex-direction: column
+              justify-content: space-between
+              overflow: hidden
+              .top
+                display: flex
+                flex-direction: column
+                .title
+                  font-size: $font-size-medium
+                  color: $color-text
+                  margin-bottom: 9px
+                .describe
+                  font-size: $font-size-small
+                  color: $color-text-9b
+              .down
+                display: flex
+                align-items: center
+                overflow: hidden
+                .down-icon
+                  width: 9px
+                  height: 11.5px
+                  margin-right: 3px
+                .address
+                  flex: 1
+                  font-size: $font-size-small
+                  color: $color-text-d
+                  no-wrap()
+
+          .item-container.dis
+            position: relative
+            .shop-logo
+              opacity: 0.3
+
+            .item-content
+              .title
+                color: $color-text-dis
+              .describe
+                color: $color-text-dis
+            .down
+              .address
+                color: $color-text-dis
+            .closed-box
+              position: absolute
+              right: 0
+              top: 0
+              width: 64.522px
+              height: 65px
+              .closed-img
+                width: 100%
+                height: 100%
+
+</style>

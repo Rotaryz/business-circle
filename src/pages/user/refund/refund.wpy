@@ -1,0 +1,257 @@
+<template>
+  <view class="refund">
+    <view class="refund-head">
+      <view class="refund-head-status border-bottom-1px">
+        <text>退款状态</text>
+        <text class="refund-head-status-red">{{refundStatus[orderMsg.status]}}</text>
+      </view>
+      <view class="refund-head-money">
+        <view class="refund-head-money-item">退款金额: ¥{{orderMsg.money}}</view>
+        <view class="refund-head-money-item">退回账户: 微信支付</view>
+      </view>
+    </view>
+
+    <view class="refund-progress">
+      <view class="refund-progress-title border-bottom-1px">退款进度</view>
+      <view class="refund-progress-msg" wx:if="{{orderMsg.refund_schedule != 5}}">
+        <view class="refund-progress-image-fail">
+          <view class="line-box">
+            <view class="refund-progress-item {{orderMsg.refund_schedule >= 2 ? 'active' : ''}}"></view>
+            <view class="refund-progress-item {{orderMsg.refund_schedule >= 4 ? 'active' : ''}}"></view>
+          </view>
+          <view class="dot-box">
+            <view class="refund-progress-dot active"></view>
+            <view class="refund-progress-dot {{orderMsg.refund_schedule >= 2 ? 'active' : ''}}"></view>
+            <view class="refund-progress-dot {{orderMsg.refund_schedule >= 4 ? 'active' : ''}}"></view>
+          </view>
+        </view>
+        <view class="refund-progress-txt">
+          <view class="refund-progress-step">
+            <view class="refund-progress-stepTitle">退款申请已提交</view>
+            <view class="refund-progress-stepMsg">您的退款申请已提交</view>
+            <view class="refund-progress-stepMsg">{{orderMsg.created_at}}</view>
+          </view>
+          <view class="refund-progress-step">
+            <view class="{{orderMsg.refund_schedule == 2?'refund-progress-stepTitle active':'refund-progress-stepTitle'}}">系统处理中</view>
+            <view class="refund-progress-stepMsg">您的退款申请已受理，审核时间预计需要1-2天</view>
+          </view>
+          <view class="refund-progress-step">
+            <view class="{{orderMsg.refund_schedule == 4?'refund-progress-stepTitle active':'refund-progress-stepTitle'}}">退款成功</view>
+            <view class="refund-progress-stepMsg">审核通过，退款申请已提交给微信支付，退款会在5天内退回您的微信支付账户</view>
+          </view>
+        </view>
+      </view>
+      <view class="refund-progress-msg" wx:if="{{orderMsg.refund_schedule == 5}}">
+        <view class="refund-progress-image-fail">
+          <view class="line-box">
+            <view class="refund-progress-item {{orderMsg.refund_schedule >= 2 ? 'active' : ''}}"></view>
+            <view class="refund-progress-item {{orderMsg.refund_schedule >= 5 ? 'active' : ''}}"></view>
+          </view>
+          <view class="dot-box">
+            <view class="refund-progress-dot active"></view>
+            <view class="refund-progress-dot {{orderMsg.refund_schedule >= 2 ? 'active' : ''}}"></view>
+            <view class="refund-progress-dot {{orderMsg.refund_schedule >= 5 ? 'active' : ''}}"></view>
+          </view>
+        </view>
+        <view class="refund-progress-txt">
+          <view class="refund-progress-step">
+            <view class="refund-progress-stepTitle">退款申请已提交</view>
+            <view class="refund-progress-stepMsg">您的退款申请已提交</view>
+            <view class="refund-progress-stepMsg">{{orderMsg.created_at}}</view>
+          </view>
+          <view class="refund-progress-step">
+            <view class="{{orderMsg.refund_schedule == 2?'refund-progress-stepTitle active':'refund-progress-stepTitle'}}">系统处理中</view>
+            <view class="refund-progress-stepMsg">您的退款申请已受理，审核时间预计需要1-2天</view>
+          </view>
+          <view class="refund-progress-step">
+            <view class="{{orderMsg.refund_schedule == 5?'refund-progress-stepTitle active':'refund-progress-stepTitle'}}">退款失败</view>
+            <view class="refund-progress-stepMsg">您的退款申请未通过审核，请联系赞播客服处理</view>
+          </view>
+        </view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import getMyOrder from '@/api/myOrder'
+  import URIS from 'common/js/config'
+  import {ERR_OK} from '@/api/base'
+
+  export default class Refund extends wepy.page {
+    mixins = [base]
+
+    config = {
+      navigationBarTitleText: '退款详情'
+    }
+
+    data = {
+      imageUrlHead: URIS.image,
+      refundStatus: ['退款中', '退款成功', '退款失败'],
+      orderMsg: null
+    }
+
+    methods = {
+
+    }
+
+    async onLoad(option) {
+      await this.load(option.id)
+    }
+
+    async load(id) {
+      let resMsg = await getMyOrder.getRefundDetail(id)
+      this.loaded()
+      if (resMsg.error !== ERR_OK) {
+        return
+      }
+      this.orderMsg = resMsg.data
+      this.$apply()
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../../common/stylus/variable"
+
+  .refund
+    .refund-head
+      background: $color-highlight-background
+      height: 101.5px
+      margin-top: 10px
+      padding-left: 12px
+
+      .refund-head-status
+        display: flex
+        height: 39px
+        justify-content: space-between
+        padding-right: 12px
+        font-size: $font-size-medium
+        align-items: center
+        color: $color-text-d
+
+        .refund-head-status-red
+          color: $color-orange
+
+      .refund-head-money
+        padding-top: 10px
+
+        .refund-head-money-item
+          line-height: 20px
+          font-size: $font-size-small
+
+    .refund-progress
+      height: 400px
+      margin-top: 10px
+      padding-left: 12px
+      background: $color-highlight-background
+
+      .refund-progress-title
+        line-height: 38px
+        font-size: $font-size-medium
+        color: $color-text-d
+
+      .refund-progress-msg
+        padding-top: 20px
+        display: flex
+
+        .refund-progress-image
+          width: 5%
+          height: 247px
+          margin-right: 12px
+          margin-top: 4px
+          position: relative
+          .line-box
+            width: 100%
+            height: 247px
+            display: flex
+            flex-direction: column
+            position: absolute
+            left: 7px
+            top: 0
+            .refund-progress-item
+              flex: 1
+              width: 1px
+              background: #CBCAD3
+            .refund-progress-item.active
+              background: $color-orange
+          .dot-box
+            width: 100%
+            height: 100%
+            position: absolute
+            left: 4px
+            top: 0
+            display: flex
+            flex-direction: column
+            .refund-progress-dot
+              width: 7px
+              height: 7px
+              border-radius: 50%
+              background: #CBCAD3
+              margin-bottom: 73px
+              &:last-child
+                margin-bottom: 0
+            .active.refund-progress-dot
+              background: $color-orange
+
+        .refund-progress-txt
+          width: 95%
+          padding-right: 10px
+          .refund-progress-step
+            height: 80px
+
+          .refund-progress-stepTitle.active
+            color: $color-orange
+
+          .refund-progress-stepTitle
+            font-size: $font-size-small
+            line-height: 17px
+            margin-bottom: 2px
+
+          .refund-progress-stepMsg
+            font-size: $font-size-small-s
+            line-height: 15px
+            color: $color-text-d
+
+        .refund-progress-image-fail
+          width: 5%
+          height: 166px
+          margin-right: 12px
+          margin-top: 4px
+          position: relative
+          .line-box
+            width: 100%
+            height: 166px
+            display: flex
+            flex-direction: column
+            position: absolute
+            left: 7px
+            top: 0
+            .refund-progress-item
+              flex: 1
+              width: 1px
+              background: #CBCAD3
+            .refund-progress-item.active
+              background: $color-orange
+          .dot-box
+            width: 100%
+            height: 100%
+            position: absolute
+            left: 4px
+            top: 0
+            display: flex
+            flex-direction: column
+            .refund-progress-dot
+              width: 7px
+              height: 7px
+              border-radius: 50%
+              background: #CBCAD3
+              margin-bottom: 73px
+              &:last-child
+                margin-bottom: 0
+            .active.refund-progress-dot
+              background: $color-orange
+
+</style>

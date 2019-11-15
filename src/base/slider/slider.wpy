@@ -1,0 +1,76 @@
+<template>
+  <view class="slider" wx:if="{{list.length}}">
+    <view class="slider-content">
+      <swiper indicator-dots="{{indicatorDots}}" indicator-color="{{indicatorColor}}"
+              indicator-active-color="{{indicatorActiveColor}}" current="{{swiperCurrent}}"
+              autoplay="{{autoplay}}" interval="{{interval}}" duration="{{duration}}" class="swiper"
+              circular="{{circular}}" @change="changeVal">
+        <slot name="content"></slot>
+      </swiper>
+    </view>
+    <view class="dots">
+      <repeat for="{{list}}" index="index" key="index" item="item">
+        <view wx:if="{{item.image}}" class="dot{{index == swiperCurrent ? ' active' : ''}}"></view>
+      </repeat>
+    </view>
+  </view>
+</template>
+
+<script>
+  import wepy from 'wepy'
+
+  export default class Slider extends wepy.component {
+    props = {
+      list: {
+        type: Array,
+        default: []
+      }
+    }
+
+    data = {
+      indicatorDots: false,
+      autoplay: false,
+      interval: 5000,
+      duration: 1000,
+      swiperCurrent: 0,
+      circular: true
+    }
+
+    methods = {
+      changeVal(e) {
+        this.swiperCurrent = e.detail.current
+      }
+    }
+  }
+</script>
+
+<style lang="stylus">
+  .slider
+    width: 100%
+    height: 100%
+    .slider-content
+      position: absolute
+      top: 0
+      left: 0
+      width: 100%
+      height: 100%
+      .swiper, .slide-image
+        width: 100%
+        height: 100%
+    .dots
+      position: absolute
+      right: 12px
+      bottom: 10px
+      display: flex
+      justify-content: center
+      .dot
+        width: 5px
+        height: 5px
+        margin: 0 2.5px
+        border-radius: 50%
+        transition: all .6s
+        background: #fff
+        &.active
+          width: 12.5px
+          border-radius: 5px
+</style>

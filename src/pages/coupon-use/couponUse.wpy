@@ -1,0 +1,287 @@
+<template>
+  <view class="couponUse">
+    <view class="couponUse-item" wx:for="{{couponList}}" wx:key="{{item}}">
+      <view class="couponUse-item-head">
+        <view class="couponUse-item-head-container">
+          <image class="coupon-bc" wx:if="{{imageUrlHead}}" src="{{imageUrlHead + '/defaults/c-image/mine/pic-couponbg@2x.png'}}"></image>
+          <view class="couponUse-item-head-left" @tap="toDetail({{item}})">
+            <view class="couponUse-itemPay">
+              <image src="{{item.image_url}}" class="promotion-image" wx:if="{{item.type==='exchange'}}" mode="aspectFit"></image>
+              <view wx:if="{{item.type!=='exchange'}}"><text class="couponUse-midMoney">¥</text><text class="couponUse-bigMoney">{{item.price}}</text></view>
+            </view>
+            <view class="couponUse-itemMsg">
+              <view class="couponUse-item-title">{{item.title}}</view>
+              <view class="underline"></view>
+              <view class="couponUse-item-time">{{item.notAllowTime}}</view>
+              <view class="couponUse-item-time">有效期至{{item.endAt}}</view>
+            </view>
+          </view>
+          <view class="couponUse-item-head-right" @tap="toShop({{item}})">
+            <view class="shopMsg">
+              <image wx:if="{{imageUrlHead}}" src="{{item.orderType === 'alliance_cash_10' ? imageUrlHead + '/defaults/c-image/mine/pic-moren@2x.png' : item.shopLogo}}" class="shopLogo"></image>
+              <view class="shopName">{{item.orderType === 'alliance_cash_10' ? item.activity_name : item.shopName}}</view>
+            </view>
+          </view>
+          <image class="exChange-img" src="{{imageUrlHead + '/defaults/c-image/mine/pic-m_certificate@2x.png'}}" wx:if="{{item.type==='exchange' && imageUrlHead}}"></image>
+        </view>
+      </view>
+      <view class="couponEwm-Msg-body">
+        <image src="{{item.qrcodeUrl}}" class="couponEwm-Msg-body-EWM"></image>
+        <view style="background-image: url({{imageUrlHead ? imageUrlHead + '/defaults/c-image/mine/pic-mabg.png':''}}); background-size: 356rpx 80rpx" class="couponEwm-Msg-body-couponNum">{{item.beautyCode}}</view>
+        <view class="couponEwm-Msg-body-txt">{{item.orderType === 'alliance_cash_10' ? '该券仅限于在参与该异业联盟活动的商家使用' : '该券码用于线下门店核销'}}</view>
+      </view>
+    </view>
+  </view>
+</template>
+
+<script>
+  /* eslint-disable no-undef */
+  import wepy from 'wepy'
+  import base from 'common/mixins/base'
+  import getMyOrder from '@/api/myOrder'
+  import Coupon from '@/api/coupon'
+  import URIS from 'common/js/config'
+  import {ERR_OK} from '@/api/base'
+
+  export default class MyCoupon extends wepy.page {
+    mixins = [base]
+
+    config = {
+      navigationBarTitleText: '进店使用',
+      navigationBarBackgroundColor: '#706B82',
+      navigationBarTextStyle: 'white',
+      backgroundColor: '#F9F9F9'
+    }
+
+    data = {
+      couponList: [],
+      imageUrlHead: URIS.image
+    }
+
+    methods = {
+      toDetail(item) {
+        if (item.type !== 'exchange' && item.orderType !== 'alliance_cash_10') {
+          this.$navigate('/pages/coupon-detail/coupon-detail?id=' + item.id + '&type=1&currentMerchant=' + item.merchantId)
+        }
+      },
+      toShop(item) {
+        if (item.merchantId && item.shopName) {
+          this.$navigate('/pages/shop-introduce/shop-introduce?merchantId=' + item.merchantId + '&title=' + item.shopName)
+        }
+      }
+    }
+
+    async onLoad(option) {
+      this.load(option.id, option.type, option.status)
+    }
+
+    async load(id, type, status) {
+      let resList, filterArr
+      switch (type) {
+        case 'voucher':
+        case 'cash':
+        case 'exchange':
+          resList = await Coupon.getUserCouponDetail(id)
+          break
+        case 'order':
+        case 'alliance':
+          resList = await getMyOrder.getOrderCouponList(id)
+          break
+        default:
+          resList = await Coupon.getUserCouponDetail(id)
+      }
+      if (resList.error !== ERR_OK) {
+        this.loaded()
+        return
+      }
+      if (type === 'alliance') {
+        let res = this._filter(resList.data)
+        filterArr = this._filterType(res, status)
+      } else {
+        filterArr = this._filter(resList.data)
+      }
+      this.couponList = this._computed(filterArr)
+      this.loaded()
+    }
+
+    // 筛选出未使用的
+    _filter(arr) {
+      return arr.filter((item) => {
+        return !item.is_used
+      })
+    }
+    // 筛选指定类型
+    _filterType(arr, type) {
+      return arr.filter((item) => {
+        return item.type === type
+      })
+    }
+
+    // 收到的数据处理后渲染
+    _computed(arr) {
+      return arr.map((item) => {
+        let beautyCode = item.code.replace(/(\d{4})/g, '$1 ')
+        return {
+          price: item.promotion.platform_price,
+          restriction: item.restriction,
+          title: item.promotion.title,
+          endAt: item.promotion.end_at,
+          notAllowTime: item.promotion.not_allow_time,
+          code: item.code,
+          beautyCode,
+          type: item.promotion.promotion_type,
+          qrcodeUrl: item.qrcode_url,
+          id: item.promotion.id,
+          image_url: item.promotion.promotion_img || '',
+          shopLogo: item.merchant_data.logo_image,
+          shopName: item.merchant_data.shop_name,
+          is_used: item.is_used,
+          activity_name: item.activity_name,
+          orderType: item.type,
+          merchantId: item.merchant_data.merchant_id
+        }
+      })
+    }
+  }
+</script>
+
+<style lang="stylus">
+  @import "../../common/stylus/variable"
+
+  page
+    background: $color-button
+
+    .couponUse-item
+      margin: 10px 12px 0
+
+      .couponUse-item-head
+        position: relative
+        padding-bottom: 28.49%
+        height: 0
+
+        .couponUse-item-head-container
+          position: absolute
+          left: 0
+          top: 0
+          right: 0
+          bottom: 0
+          display: flex
+
+          .coupon-bc
+            position: absolute
+            height: 100%
+            width: 100%
+
+          .couponUse-item-head-left
+            width: 74.4%
+            height: 100%
+            display: flex
+            position: absolute
+            left: 0
+
+            .couponUse-itemPay
+              flex: 4
+              display: flex
+              align-items: center
+              justify-content: center
+
+              .promotion-image
+                width: 55px
+                height: 55px
+                border-radius: 2px
+
+              .couponUse-midMoney
+                font-size: $font-size-small-s
+                font-family: PingFangSC-Semibold
+                color: $color-text-t
+
+              .couponUse-bigMoney
+                color: $color-text-t
+                font-size: 25px
+                font-family: PingFangSC-Semibold
+
+            .couponUse-itemMsg
+              flex: 7
+              display: flex
+              flex-direction: column
+              justify-content: center
+
+              .couponUse-item-title
+                font-family: PingFangSC-Medium
+                font-size: $font-size-medium
+                padding-bottom: 10px
+              .underline
+                width: 90%
+                height: 10px
+                border-top: .5px solid $color-col-line
+
+              .couponUse-item-time
+                font-size: $font-size-small-s
+                color: $color-text-d
+                line-height: 14px
+
+          .couponUse-item-head-right
+            position: absolute
+            right: 0
+            width: 25.6%
+            height: 100%
+            display: flex
+            align-items: center
+            justify-content: center
+
+            .shopMsg
+              display: flex
+              flex-direction: column
+              align-items: center
+              width: 100%
+
+              .shopLogo
+                width: 32px
+                height: 32px
+                border-radius: 50%
+                margin-bottom: 5px
+
+              .shopName
+                font-size: $font-size-small
+                color: $color-text
+                width: 100%
+                text-align: center
+                overflow: hidden
+                text-overflow: ellipsis
+                white-space: nowrap
+
+          .exChange-img
+            position: absolute
+            left: 0
+            top: 0
+            width: 44.5px
+            height: 46.5px
+
+      .couponEwm-Msg-body
+        height: 270px
+        display: flex
+        flex-direction: column
+        align-items: center
+        background: $color-highlight-background
+        justify-content: center
+
+        .couponEwm-Msg-body-EWM
+          width: 177px
+          height: 177px
+          border: 1px solid $color-col-line
+
+        .couponEwm-Msg-body-couponNum
+          height: 40px
+          width: 179px
+          text-align: center
+          line-height: 40px
+          font-family: PingFangSC-Medium
+          font-size: $font-size-large-xx
+
+        .couponEwm-Msg-body-txt
+          font-size: $font-size-small-s
+          color: $color-text-d
+          line-height: 14px
+          margin-top: 10px
+
+</style>
